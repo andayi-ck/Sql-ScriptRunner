@@ -1,0 +1,524 @@
+﻿using System;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using KabarakScriptRunner.Data.Models;
+using KabarakScriptRunner.Data.Repositories;
+using Microsoft.Win32;
+
+namespace KabarakScriptRunnerApp
+{
+    public partial class MainWindow : Window
+    {
+        private readonly ScriptRepository _scriptRepository;
+        private User? _currentUser;
+        private Department? _currentDepartment;
+        private CancellationTokenSource? _runCts;
+
+        private readonly ObservableCollection<LogEntry> _progressEntries = new();
+
+        public bool LogoutRequested { get; private set; }
+
+        public MainWindow(ScriptRepository scriptRepository)
+        {
+            InitializeComponent();
+            _scriptRepository = scriptRepository;
+
+            lstProgressLog.ItemsSource = _progressEntries;
+
+            // Block future dates on Date To
+            dtpTo.DisplayDateEnd = DateTime.Today;
+            dtpTo.SelectedDateChanged += (_, _) =>
+            {
+                if (dtpTo.SelectedDate > DateTime.Today)
+                    dtpTo.SelectedDate = DateTime.Today;
+            };
+        }
+
+        public void SetCurrentUser(User user, Department department)
+        {
+            _currentUser = user;
+            _currentDepartment = department;
+
+            lblUserId.Text = user.UserId;
+            lblUserName.Text = user.DisplayName;
+            lblDepartment.Text = department.DepartmentName;
+
+            bool isAdmin = user.IsAdmin;
+
+            btnUsers.IsEnabled = isAdmin;
+            btnAssign.IsEnabled = isAdmin;
+            btnOptions.IsEnabled = isAdmin;
+            btnAccessLog.IsEnabled = isAdmin;
+            btnChangePassword.IsEnabled = isAdmin;
+
+            btnScripts.IsEnabled = true;
+
+            Loaded += async (_, _) => await LoadInitialDataAsync();
+        }
+
+        private async Task LoadInitialDataAsync()
+        {
+            if (_currentUser == null) return;
+
+            try
+            {
+                var outputFolder = await _scriptRepository.GetSettingAsync("OutputFolder");
+                if (!string.IsNullOrEmpty(outputFolder))
+                    txtOutputFolder.Text = outputFolder;
+
+                await LoadScriptsAsync();
+
+                AppendProgress($"Logged in as {_currentUser.DisplayName} ({_currentUser.UserId}) — {_currentDepartment?.DepartmentName}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading data:\n\n{ex.Message}",
+                    "Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task LoadScriptsAsync()
+        {
+            if (_currentUser == null) return;
+
+            var scripts = await _scriptRepository.GetScriptsAsync(
+                _currentDepartment?.DepartmentId,
+                _currentUser.IsAdmin);
+
+            lstScripts.ItemsSource = scripts;
+        }
+
+        // ============================================
+        // PROGRESS LOG
+        // ============================================
+        private void AppendProgress(string message)
+        {
+            string icon = "•";
+            if (message.StartsWith("▶")) { icon = "▶"; message = message.Substring(1).TrimStart(); }
+            else if (message.StartsWith("✔")) { icon = "✔"; message = message.Substring(1).TrimStart(); }
+            else if (message.StartsWith("✘")) { icon = "✘"; message = message.Substring(1).TrimStart(); }
+            else if (message.StartsWith("⚠")) { icon = "⚠"; message = message.Substring(1).TrimStart(); }
+
+            var entry = new LogEntry
+            {
+                Timestamp = DateTime.Now.ToString("HH:mm:ss"),
+                Icon = icon,
+                Message = message
+            };
+
+            _progressEntries.Add(entry);
+
+            while (_progressEntries.Count > 500)
+                _progressEntries.RemoveAt(0);
+
+            if (_progressEntries.Count > 0)
+                lstProgressLog.ScrollIntoView(_progressEntries[^1]);
+        }
+
+        // ============================================
+        // SELECTION FEEDBACK
+        // ============================================
+        private void lstScripts_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            int count = lstScripts.SelectedItems.Count;
+
+            if (count == 0)
+            {
+                lblSelectedScript.Text = "(none)";
+                lblSelectedScript.FontStyle = FontStyles.Italic;
+                lblProgressStatus.Text = "";
+                return;
+            }
+
+            if (count == 1)
+            {
+                var script = lstScripts.SelectedItem as Script;
+                if (script != null)
+                {
+                    lblSelectedScript.Text = script.Name;
+                    lblSelectedScript.FontStyle = FontStyles.Normal;
+                    lblProgressStatus.Text = $"Ready to run: {script.Name}";
+                }
+            }
+            else
+            {
+                lblSelectedScript.Text = $"{count} scripts selected";
+                lblSelectedScript.FontStyle = FontStyles.Normal;
+                lblProgressStatus.Text = $"{count} scripts queued for execution.";
+            }
+        }
+
+        // ============================================
+        // OUTPUT FOLDER BROWSE
+        // ============================================
+        private void btnBrowseOutput_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new OpenFolderDialog
+            {
+                Title = "Select output folder for Excel exports",
+                InitialDirectory = System.IO.Directory.Exists(txtOutputFolder.Text)
+                    ? txtOutputFolder.Text
+                    : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                txtOutputFolder.Text = dialog.FolderName;
+            }
+        }
+
+        // ============================================
+        // ADMIN BUTTONS
+        // ============================================
+        private async void btnScripts_Click(object sender, RoutedEventArgs e)
+        {
+            var allScripts = lstScripts.ItemsSource as System.Collections.IEnumerable;
+            if (allScripts == null)
+            {
+                MessageBox.Show("Scripts have not yet loaded. Try clicking 'Refresh Scripts'.",
+                    "No Scripts", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var scriptList = allScripts.Cast<Script>().ToList();
+            var departments = await _scriptRepository.GetDepartmentsAsync();
+
+            var finder = new ScriptFinderWindow(scriptList, departments) { Owner = this };
+            if (finder.ShowDialog() == true && finder.SelectedScript != null)
+            {
+                lstScripts.SelectedItem = finder.SelectedScript;
+                lstScripts.ScrollIntoView(finder.SelectedScript);
+                lstScripts.Focus();
+            }
+        }
+
+        private void btnUsers_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentUser == null || !_currentUser.IsAdmin) return;
+
+            var window = new UsersWindow(_scriptRepository, _currentUser) { Owner = this };
+            window.ShowDialog();
+        }
+
+        private void btnAssign_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentUser == null || !_currentUser.IsAdmin) return;
+
+            // Pass current admin's UserId for audit logging
+            var window = new AssignScriptsWindow(_scriptRepository, _currentUser.UserId) { Owner = this };
+            window.ShowDialog();
+
+            _ = LoadScriptsAsync();
+        }
+
+        private void btnOptions_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentUser == null || !_currentUser.IsAdmin) return;
+
+            var window = new OptionsWindow(_scriptRepository) { Owner = this };
+            window.ShowDialog();
+        }
+
+        private void btnAccessLog_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentUser == null || !_currentUser.IsAdmin) return;
+
+            var window = new AccessLogWindow(_scriptRepository) { Owner = this };
+            window.ShowDialog();
+        }
+
+        // ============================================
+        // BOTTOM BUTTONS
+        // ============================================
+        private async void btnRefresh_Click(object sender, RoutedEventArgs e)
+        {
+            await LoadScriptsAsync();
+            AppendProgress("Script list refreshed.");
+        }
+
+        private void btnCancelRun_Click(object sender, RoutedEventArgs e)
+        {
+            if (_runCts == null || _runCts.IsCancellationRequested)
+                return;
+
+            var confirm = MessageBox.Show(
+                "Cancel the currently running query?\n\n" +
+                "Any scripts that have already completed will keep their Excel files.\n" +
+                "The currently-running script will be aborted.",
+                "Cancel Run",
+                MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+            if (confirm == MessageBoxResult.Yes)
+            {
+                _runCts.Cancel();
+                AppendProgress("⚠ Cancel requested...");
+            }
+        }
+
+        private async void btnRun_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentUser == null || _currentDepartment == null)
+            {
+                MessageBox.Show("You must be logged in to run scripts.",
+                    "Not Logged In", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var selectedScripts = lstScripts.SelectedItems.Cast<Script>().ToList();
+            if (selectedScripts.Count == 0)
+            {
+                MessageBox.Show(
+                    "Please select at least one script from the list before clicking Run.",
+                    "No Script Selected", MessageBoxButton.OK, MessageBoxImage.Warning);
+                lstScripts.Focus();
+                return;
+            }
+
+            var outputFolder = txtOutputFolder.Text.Trim();
+            if (string.IsNullOrWhiteSpace(outputFolder))
+            {
+                MessageBox.Show(
+                    "Please select an output folder where the Excel files will be saved.",
+                    "No Output Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
+                txtOutputFolder.Focus();
+                return;
+            }
+
+            try
+            {
+                System.IO.Directory.CreateDirectory(outputFolder);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"The output folder could not be used:\n\n{ex.Message}",
+                    "Invalid Output Folder", MessageBoxButton.OK, MessageBoxImage.Error);
+                txtOutputFolder.Focus();
+                return;
+            }
+
+            if (dtpFrom.SelectedDate == null)
+            {
+                MessageBox.Show("Please select a 'Date From' before running the script.",
+                    "Date From Missing", MessageBoxButton.OK, MessageBoxImage.Warning);
+                dtpFrom.Focus();
+                return;
+            }
+            if (dtpTo.SelectedDate == null)
+            {
+                MessageBox.Show("Please select a 'Date To' before running the script.",
+                    "Date To Missing", MessageBoxButton.OK, MessageBoxImage.Warning);
+                dtpTo.Focus();
+                return;
+            }
+
+            var dateFrom = dtpFrom.SelectedDate.Value;
+            var dateTo = dtpTo.SelectedDate.Value;
+
+            if (dateTo > DateTime.Today)
+            {
+                MessageBox.Show(
+                    $"The 'Date To' cannot be in the future.\n\n" +
+                    $"You selected: {dateTo:MMMM d, yyyy}",
+                    "Future Date Not Allowed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                dtpTo.Focus();
+                return;
+            }
+            if (dateTo < dateFrom)
+            {
+                MessageBox.Show(
+                    "The 'Date To' cannot be earlier than the 'Date From'.",
+                    "Invalid Date Range", MessageBoxButton.OK, MessageBoxImage.Warning);
+                dtpTo.Focus();
+                return;
+            }
+
+            // ---------- Validations passed ----------
+
+            btnRun.IsEnabled = false;
+            btnRefresh.IsEnabled = false;
+            btnCancelRun.IsEnabled = true;
+
+            _runCts = new CancellationTokenSource();
+            var token = _runCts.Token;
+
+            prgProgress.IsIndeterminate = false;
+            prgProgress.Minimum = 0;
+            prgProgress.Maximum = 100;
+            prgProgress.Value = 0;
+            lblProgressPercent.Text = "0%";
+
+            int total = selectedScripts.Count;
+            int completed = 0;
+            int succeeded = 0;
+            int failed = 0;
+            bool cancelled = false;
+
+            try
+            {
+                foreach (var script in selectedScripts)
+                {
+                    if (token.IsCancellationRequested)
+                    {
+                        cancelled = true;
+                        AppendProgress("✘ Run cancelled by user.");
+                        break;
+                    }
+
+                    lblProgressStatus.Text = $"Running: {script.Name} ({completed + 1} of {total})";
+
+                    bool ok = await RunOneScriptAsync(script, dateFrom, dateTo, outputFolder, token);
+                    completed++;
+                    if (ok) succeeded++; else failed++;
+
+                    double newValue = (double)completed / total * 100.0;
+                    await AnimateProgressBarAsync(prgProgress, newValue);
+                    lblProgressPercent.Text = $"{newValue:0}%";
+                }
+            }
+            finally
+            {
+                if (cancelled)
+                    lblProgressStatus.Text = $"Cancelled. Completed {completed} of {total}.";
+                else
+                    lblProgressStatus.Text = $"Done. Succeeded: {succeeded}, Failed: {failed}.";
+
+                lblProgressPercent.Text = cancelled ? $"{prgProgress.Value:0}%" : "100%";
+
+                await Task.Delay(5000);
+
+                prgProgress.Value = 0;
+                lblProgressPercent.Text = "";
+                lblProgressStatus.Text = "";
+                lblSelectedScript.Text = "(none)";
+                lblSelectedScript.FontStyle = FontStyles.Italic;
+
+                btnRun.IsEnabled = true;
+                btnRefresh.IsEnabled = true;
+                btnCancelRun.IsEnabled = false;
+
+                _runCts?.Dispose();
+                _runCts = null;
+            }
+        }
+
+        private async Task AnimateProgressBarAsync(ProgressBar bar, double target)
+        {
+            double start = bar.Value;
+            const int steps = 25;
+            const int delayMs = 16;
+            for (int i = 1; i <= steps; i++)
+            {
+                bar.Value = start + (target - start) * i / steps;
+                await Task.Delay(delayMs);
+            }
+            bar.Value = target;
+        }
+
+        private async Task<bool> RunOneScriptAsync(
+            Script script,
+            DateTime dateFrom,
+            DateTime dateTo,
+            string outputFolder,
+            CancellationToken token)
+        {
+            long runId = 0;
+            AppendProgress($"▶ Starting: {script.Name}");
+
+            try
+            {
+                runId = await _scriptRepository.StartScriptRunAsync(
+                    _currentUser!.UserId, script.ScriptId, dateFrom, dateTo);
+
+                var table = await KabarakScriptRunner.Core.Services.ScriptExecutorService.ExecuteScriptAsync(
+                    App.ConnectionString,
+                    script.SqlText,
+                    script.NeedsDateFrom ? dateFrom : null,
+                    script.NeedsDateTo ? dateTo : null,
+                    token);
+
+                AppendProgress($"   Query returned {table.Rows.Count} rows.");
+
+                var filePath = KabarakScriptRunner.Core.Services.ExcelExportService.ExportToExcel(
+                    table, outputFolder, script.Name);
+
+                AppendProgress($"✔ Saved: {System.IO.Path.GetFileName(filePath)}");
+
+                await _scriptRepository.FinishScriptRunSuccessAsync(runId, table.Rows.Count, filePath);
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                AppendProgress($"✘ Cancelled: {script.Name}");
+
+                if (runId > 0)
+                {
+                    try { await _scriptRepository.FinishScriptRunFailedAsync(runId, "Cancelled by user."); }
+                    catch { }
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                AppendProgress($"✘ Failed: {ex.Message}");
+
+                if (runId > 0)
+                {
+                    try { await _scriptRepository.FinishScriptRunFailedAsync(runId, ex.Message); }
+                    catch { }
+                }
+
+                MessageBox.Show($"Error running script '{script.Name}':\n\n{ex.Message}",
+                    "Script Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
+        }
+
+        private void btnChangePassword_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentUser == null || !_currentUser.IsAdmin) return;
+
+            // Pass current admin's UserId for audit logging
+            var window = new ChangePasswordWindow(_scriptRepository, _currentUser.UserId) { Owner = this };
+            window.ShowDialog();
+        }
+
+        private void btnClose_Click(object sender, RoutedEventArgs e)
+        {
+            var result = MessageBox.Show(
+                "Are you sure you want to close the application?",
+                "Confirm Close",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+                Application.Current.Shutdown();
+        }
+
+        // ============================================
+        // LOGOUT
+        // ============================================
+        private void btnLogout_Click(object sender, RoutedEventArgs e)
+        {
+            if (LogoutRequested) return;
+
+            var confirm = MessageBox.Show(
+                $"Log out {_currentUser?.DisplayName ?? "this user"}?",
+                "Confirm Logout",
+                MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+            if (confirm != MessageBoxResult.Yes) return;
+
+            LogoutRequested = true;
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try { Close(); }
+                catch { /* window already closed */ }
+            }), System.Windows.Threading.DispatcherPriority.Background);
+        }
+    }
+}

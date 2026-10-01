@@ -1,0 +1,62 @@
+﻿<Window x:Class="KabarakScriptRunnerApp.OptionsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Options"
+        Height="320" Width="520"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#F0F0F0">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                   Text="Application Options"
+                   FontSize="15" FontWeight="Bold"
+                   HorizontalAlignment="Center"
+                   Margin="0,0,0,16"/>
+
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="Default Output Folder" VerticalAlignment="Center"/>
+        <TextBox x:Name="txtOutputFolder" Grid.Row="1" Grid.Column="1" Height="26" Margin="0,0,6,10"/>
+        <Button x:Name="btnBrowse" Grid.Row="1" Grid.Column="2"
+                Content="Browse…" Width="80" Height="26" Margin="0,0,0,10"
+                Click="btnBrowse_Click"/>
+
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="Application Title" VerticalAlignment="Center"/>
+        <TextBox x:Name="txtAppTitle" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+                 Height="26" Margin="0,0,0,10"/>
+
+        <TextBlock x:Name="lblStatus"
+                   Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3"
+                   Foreground="Green"
+                   VerticalAlignment="Top"
+                   TextWrapping="Wrap"/>
+
+        <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="3"
+                    Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="btnViewLogs" Content="View Logs"
+                    Width="100" Height="32" Margin="0,0,8,0"
+                    Click="btnViewLogs_Click"
+                    ToolTip="Open the folder containing crash logs"/>
+            <Button x:Name="btnSave" Content="Save"
+                    Width="90" Height="32" Margin="0,0,8,0"
+                    IsDefault="True"
+                    Click="btnSave_Click"/>
+            <Button x:Name="btnClose" Content="Close"
+                    Width="90" Height="32"
+                    IsCancel="True"
+                    Click="btnClose_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

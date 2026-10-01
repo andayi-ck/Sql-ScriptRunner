@@ -1,0 +1,76 @@
+﻿<Window x:Class="KabarakScriptRunnerApp.AssignScriptsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Assign Scripts to Departments"
+        Height="620" Width="900"
+        WindowStartupLocation="CenterOwner"
+        Background="#F0F0F0"
+        x:Name="AssignWindow">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="Assign each script to a department. Scripts with no department are visible to all users."
+                   Foreground="#666"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,8"/>
+
+        <Border Grid.Row="1"
+                Background="#FFF8E1"
+                BorderBrush="#FFB300"
+                BorderThickness="1"
+                CornerRadius="3"
+                Padding="8,6"
+                Margin="0,0,0,10">
+            <TextBlock TextWrapping="Wrap"
+                       Foreground="#6D4C00">
+                Change the Department dropdown for any script, then click
+                <Bold>Save Changes</Bold>. Scripts left as "(Unassigned)" are visible to all departments.
+            </TextBlock>
+        </Border>
+
+        <DataGrid x:Name="dgScripts"
+                  Grid.Row="2"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  Background="White"
+                  RowHeight="30"
+                  BorderBrush="#A0A0A0" BorderThickness="1"
+                  HeadersVisibility="Column"
+                  GridLinesVisibility="Horizontal">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="ID" Binding="{Binding ScriptId}" Width="50" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Script Name" Binding="{Binding Name}" Width="280" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="120" IsReadOnly="True"/>
+
+                <DataGridTemplateColumn Header="Department" Width="*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <ComboBox ItemsSource="{Binding DataContext.Departments, ElementName=AssignWindow}"
+                                      DisplayMemberPath="DepartmentName"
+                                      SelectedValuePath="DepartmentId"
+                                      SelectedValue="{Binding DepartmentId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      Height="24"
+                                      Margin="4,2"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <TextBlock x:Name="lblStatus" VerticalAlignment="Center" Margin="0,0,12,0" Foreground="#555"/>
+            <Button x:Name="btnSave" Content="Save Changes"
+                    Width="130" Height="32" Margin="0,0,8,0"
+                    Click="btnSave_Click"/>
+            <Button x:Name="btnClose" Content="Close"
+                    Width="90" Height="32"
+                    Click="btnClose_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

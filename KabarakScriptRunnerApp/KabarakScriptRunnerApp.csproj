@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>KabarakScriptRunnerApp</RootNamespace>
+    <AssemblyName>KabarakScriptRunnerApp</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
+    <PackageReference Include="QuestPDF" Version="2026.9.1" />
+  </ItemGroup>
+	
+  <ItemGroup>
+    <ProjectReference Include="..\KabarakScriptRunner.Core\KabarakScriptRunner.Core.csproj" />
+    <ProjectReference Include="..\KabarakScriptRunner.Data\KabarakScriptRunner.Data.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
