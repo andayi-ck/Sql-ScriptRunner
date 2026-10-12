@@ -4,6 +4,7 @@
         Title="Assign Scripts to Departments"
         Height="620" Width="900"
         WindowStartupLocation="CenterOwner"
+        Icon="pack://application:,,,/Resources/app.ico"
         Background="#F0F0F0"
         x:Name="AssignWindow">
     <Grid Margin="12">

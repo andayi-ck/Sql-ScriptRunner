@@ -8,7 +8,29 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>KabarakScriptRunnerApp</RootNamespace>
     <AssemblyName>KabarakScriptRunnerApp</AssemblyName>
+    <Version>2.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <Product>Kabarak Script Runner</Product>
+    <Company>Kabarak University</Company>
+    <Copyright>Copyright © Kabarak University 2026</Copyright>
+    <Description>Desktop application for extracting Kabarak University
+                 data to Excel
+	</Description>
+    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Resources\app.ico" />
+    <None Remove="Resources\icon-arrow.png" />
+    <None Remove="Resources\icon-document.png" />
+    <None Remove="Resources\icon-papers.png" />
+    <None Remove="Resources\splash.png" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
@@ -19,6 +41,27 @@
   <ItemGroup>
     <ProjectReference Include="..\KabarakScriptRunner.Core\KabarakScriptRunner.Core.csproj" />
     <ProjectReference Include="..\KabarakScriptRunner.Data\KabarakScriptRunner.Data.csproj" />
+  </ItemGroup>
+	
+  <ItemGroup>
+    <Resource Include="Resources\app.ico">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\icon-arrow.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\icon-document.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\icon-papers.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+  </ItemGroup>
+	
+  <ItemGroup>
+    <SplashScreen Include="Resources\splash.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </SplashScreen>
   </ItemGroup>
 
   <ItemGroup>

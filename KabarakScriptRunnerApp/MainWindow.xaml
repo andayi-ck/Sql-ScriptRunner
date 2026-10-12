@@ -38,9 +38,29 @@
                            Text="Extract data from Kabarak University records and export to Excel"/>
 
                 <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center">
-                    <TextBlock Text="📄" FontSize="42" HorizontalAlignment="Center"/>
-                    <TextBlock Text="⬇" FontSize="28" HorizontalAlignment="Center" Margin="0,8"/>
-                    <TextBlock Text="📗" FontSize="42" HorizontalAlignment="Center"/>
+
+                    <!-- Stacked papers with table icon -->
+                    <Image Source="pack://application:,,,/Resources/icon-papers.png"
+                           Width="64" Height="64"
+                           Stretch="Uniform"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           HorizontalAlignment="Center"/>
+
+                    <!-- Down arrow -->
+                    <Image Source="pack://application:,,,/Resources/icon-arrow.png"
+                           Width="40" Height="40"
+                           Margin="0,12"
+                           Stretch="Uniform"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           HorizontalAlignment="Center"/>
+
+                    <!-- Document with text lines -->
+                    <Image Source="pack://application:,,,/Resources/icon-document.png"
+           Width="64" Height="64"
+           Stretch="Uniform"
+           RenderOptions.BitmapScalingMode="HighQuality"
+           HorizontalAlignment="Center"/>
+
                 </StackPanel>
 
                 <StackPanel Grid.Row="2">
