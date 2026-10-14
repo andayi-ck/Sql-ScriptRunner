@@ -1,9 +1,14 @@
 ﻿using System;
+using System.IO;
+using System.Threading.Tasks;
 using System.Windows;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using KabarakScriptRunner.Data.Repositories;
 using QuestPDF.Infrastructure;
+using KabarakScriptRunnerApp.Startup;
+using KabarakScriptRunnerApp.Services; // Imported for ICurrentUserService orchestration
+using Serilog;
 
 namespace KabarakScriptRunnerApp
 {
@@ -23,55 +28,86 @@ namespace KabarakScriptRunnerApp
         {
             base.OnStartup(e);
 
-            // QuestPDF license (required before any PDF generation)
+            // --- Serilog bootstrap (must be first) ---
+            var logFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "KabarakScriptRunner", "logs");
+
+            Directory.CreateDirectory(logFolder);
+
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Information()
+                .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
+                .Enrich.FromLogContext()
+                .WriteTo.Debug()
+                .WriteTo.File(
+                    Path.Combine(logFolder, "log-.txt"),
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 30,
+                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+                .CreateLogger();
+
+            Log.Information("Application starting up");
+
+            // --- Configuration ---
+            try
+            {
+                Configuration = StartupValidator.LoadAndValidate();
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(ex, "Configuration validation failed");
+                MessageBox.Show(
+                    $"The application could not start:\n\n{ex.Message}",
+                    "Configuration Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                Shutdown(1);
+                return;
+            }
+
+            // QuestPDF
             QuestPDF.Settings.License = LicenseType.Community;
 
-            // ---------- Global exception handling ----------
-
-            // UI-thread exceptions: log + show message, but don't crash the app.
+            // --- Global handlers now log through Serilog ---
             DispatcherUnhandledException += (_, args) =>
             {
-                LogException(args.Exception, "DispatcherUnhandledException");
+                Log.Error(args.Exception, "UI thread exception");
                 MessageBox.Show(
                     $"An unexpected error occurred:\n\n{args.Exception.Message}\n\n" +
-                    "The error has been logged. If the problem persists, please contact your administrator.",
+                    "The error has been logged. If it persists, contact your administrator.",
                     "Unexpected Error",
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 args.Handled = true;
             };
 
-            // Non-UI thread exceptions: log only. Do NOT shut down.
             AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             {
                 if (args.ExceptionObject is Exception ex)
-                    LogException(ex, "AppDomainUnhandledException");
+                    Log.Fatal(ex, "AppDomain unhandled exception");
             };
 
-            // Unobserved task exceptions (common during shutdown — log only).
-            System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, args) =>
+            TaskScheduler.UnobservedTaskException += (_, args) =>
             {
-                LogException(args.Exception, "UnobservedTaskException");
-                args.SetObserved();   // suppress finalizer rethrow
+                Log.Error(args.Exception, "Unobserved task exception");
+                args.SetObserved();
             };
 
-            // ---------- Configuration ----------
-
-            var builder = new ConfigurationBuilder()
-                .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
-
-            Configuration = builder.Build();
-
-            // ---------- DI container ----------
-
+            // --- Continue with DI ---
             var services = new ServiceCollection();
             services.AddSingleton<IConfiguration>(Configuration);
             ConfigureServices(services);
             ServiceProvider = services.BuildServiceProvider();
 
-            // ---------- Login loop ----------
+            Log.Information("Configuration loaded, DI container built");
 
             ShowLoginLoop();
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            Log.Information("Application shutting down");
+            Log.CloseAndFlush();
+            base.OnExit(e);
         }
 
         private void ShowLoginLoop()
@@ -87,13 +123,18 @@ namespace KabarakScriptRunnerApp
                     return;
                 }
 
+                // Hydrate the shared session infrastructure service with current user credentials
+                var userService = ServiceProvider.GetRequiredService<ICurrentUserService>();
+                userService.Set(login.AuthenticatedUser, login.SelectedDepartment);
+
                 var main = ServiceProvider.GetRequiredService<MainWindow>();
                 main.SetCurrentUser(login.AuthenticatedUser, login.SelectedDepartment);
                 main.ShowDialog();
 
                 if (main.LogoutRequested)
                 {
-                    // Loop back to login
+                    // Evict identity contexts from the state machine before looping back
+                    userService.Clear();
                     continue;
                 }
 
@@ -104,39 +145,23 @@ namespace KabarakScriptRunnerApp
 
         private void ConfigureServices(IServiceCollection services)
         {
+            // Infrastructure & Data Access Contexts
             services.AddSingleton<DatabaseContext>();
             services.AddTransient<ScriptRepository>();
+
+            // Global State Management
+            services.AddSingleton<ICurrentUserService, CurrentUserService>();
+
+            // Client Presentation Workspace Windows
             services.AddTransient<LoginWindow>();
             services.AddTransient<MainWindow>();
-        }
-
-        /// <summary>
-        /// Writes the exception to a log file under %LOCALAPPDATA%\KabarakScriptRunner\logs.
-        /// Never throws — if logging fails, we swallow the failure.
-        /// </summary>
-        private static void LogException(Exception ex, string source)
-        {
-            try
-            {
-                var logDir = System.IO.Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "KabarakScriptRunner", "logs");
-                System.IO.Directory.CreateDirectory(logDir);
-
-                var logPath = System.IO.Path.Combine(logDir, $"error_{DateTime.Now:yyyyMMdd_HHmmss}.log");
-                System.IO.File.AppendAllText(logPath,
-                    $"Timestamp: {DateTime.Now:O}\n" +
-                    $"Source:    {source}\n" +
-                    $"Message:   {ex.Message}\n" +
-                    $"Type:      {ex.GetType().FullName}\n" +
-                    $"Stack:     {ex.StackTrace}\n" +
-                    $"Inner:     {ex.InnerException}\n" +
-                    new string('-', 80) + "\n");
-            }
-            catch
-            {
-                // Never throw from a crash logger.
-            }
+            services.AddTransient<UsersWindow>();
+            services.AddTransient<UserEditWindow>();
+            services.AddTransient<AccessLogWindow>();
+            services.AddTransient<AssignScriptsWindow>();
+            services.AddTransient<ChangePasswordWindow>();
+            services.AddTransient<OptionsWindow>();
+            services.AddTransient<ScriptFinderWindow>();
         }
     }
 }

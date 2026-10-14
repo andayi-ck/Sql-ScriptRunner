@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Linq;
 using System.Windows;
 using KabarakScriptRunner.Core.Security;
 using KabarakScriptRunner.Data.Models;
 using KabarakScriptRunner.Data.Repositories;
+using KabarakScriptRunnerApp.Validation; // Ensure this matches your validator namespace
 
 namespace KabarakScriptRunnerApp
 {
@@ -41,17 +43,21 @@ namespace KabarakScriptRunnerApp
             var newPwd = txtNew.Password;
             var confirm = txtConfirm.Password;
 
-            if (user == null) { lblError.Text = "Please select a user."; return; }
-            if (string.IsNullOrWhiteSpace(newPwd)) { lblError.Text = "Please enter a new password."; txtNew.Focus(); return; }
-            if (newPwd.Length < 6) { lblError.Text = "Password must be at least 6 characters."; txtNew.Focus(); return; }
-            if (newPwd != confirm) { lblError.Text = "The two passwords do not match."; txtConfirm.Focus(); return; }
+            // Execute pattern validation rule block
+            var validator = new ChangePasswordValidator();
+            var result = validator.Validate((user, newPwd, confirm));
+
+            if (!result.IsValid)
+            {
+                lblError.Text = string.Join("\n", result.Errors.Select(err => "• " + err.ErrorMessage));
+                return;
+            }
 
             try
             {
                 var hash = PasswordHasher.Hash(newPwd);
-                await _scriptRepository.UpdateUserPasswordAsync(user.UserId, hash);
+                await _scriptRepository.UpdateUserPasswordAsync(user!.UserId, hash);
 
-                // Audit trail
                 await _scriptRepository.LogAdminActionAsync(
                     _currentAdminUserId,
                     "PasswordChanged",

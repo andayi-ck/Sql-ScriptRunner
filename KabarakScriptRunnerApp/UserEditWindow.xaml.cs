@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using KabarakScriptRunner.Core.Security;
 using KabarakScriptRunner.Data.Models;
 using KabarakScriptRunner.Data.Repositories;
+using KabarakScriptRunnerApp.Validation; // Ensure this matches your validator namespace
 
 namespace KabarakScriptRunnerApp
 {
@@ -28,7 +29,6 @@ namespace KabarakScriptRunnerApp
 
         private async System.Threading.Tasks.Task InitializeAsync()
         {
-            // Load departments
             try
             {
                 var departments = await _scriptRepository.GetDepartmentsAsync();
@@ -51,19 +51,17 @@ namespace KabarakScriptRunnerApp
                 Title = $"Edit User: {_existingUser.UserId}";
 
                 txtUserId.Text = _existingUser.UserId;
-                txtUserId.IsEnabled = false;   // User IDs cannot be changed
+                txtUserId.IsEnabled = false;
 
                 txtDisplayName.Text = _existingUser.DisplayName;
                 chkIsAdmin.IsChecked = _existingUser.IsAdmin;
 
-                // Select the user's current department
                 if (_existingUser.DepartmentId != null && cmbDepartment.ItemsSource != null)
                 {
                     var list = cmbDepartment.ItemsSource.Cast<Department>().ToList();
                     cmbDepartment.SelectedItem = list.FirstOrDefault(d => d.DepartmentId == _existingUser.DepartmentId);
                 }
 
-                // Hide password fields — passwords are reset via "Change Password"
                 lblPassword.Visibility = Visibility.Collapsed;
                 txtPassword.Visibility = Visibility.Collapsed;
                 lblPasswordConfirm.Visibility = Visibility.Collapsed;
@@ -79,57 +77,26 @@ namespace KabarakScriptRunnerApp
             var displayName = txtDisplayName.Text.Trim();
             var dept = cmbDepartment.SelectedItem as Department;
             var isAdmin = chkIsAdmin.IsChecked == true;
+            var password = txtPassword.Password;
+            var confirm = txtPasswordConfirm.Password;
 
-            // Validate
-            if (string.IsNullOrWhiteSpace(userId))
+            // Execute pattern validation rule block
+            var validator = new UserEditValidator(IsNewUser);
+            var result = validator.Validate((userId, displayName, dept, password, confirm));
+
+            if (!result.IsValid)
             {
-                lblError.Text = "User ID is required.";
-                txtUserId.Focus();
-                return;
-            }
-            if (string.IsNullOrWhiteSpace(displayName))
-            {
-                lblError.Text = "Display Name is required.";
-                txtDisplayName.Focus();
-                return;
-            }
-            if (dept == null)
-            {
-                lblError.Text = "Please select a department.";
-                cmbDepartment.Focus();
+                lblError.Text = string.Join("\n", result.Errors.Select(err => "• " + err.ErrorMessage));
                 return;
             }
 
             if (IsNewUser)
             {
-                var password = txtPassword.Password;
-                var confirm = txtPasswordConfirm.Password;
-
-                if (string.IsNullOrWhiteSpace(password))
-                {
-                    lblError.Text = "Password is required for new users.";
-                    txtPassword.Focus();
-                    return;
-                }
-                if (password.Length < 6)
-                {
-                    lblError.Text = "Password must be at least 6 characters long.";
-                    txtPassword.Focus();
-                    return;
-                }
-                if (password != confirm)
-                {
-                    lblError.Text = "The two passwords do not match.";
-                    txtPasswordConfirm.Focus();
-                    return;
-                }
-
                 try
                 {
                     var hash = PasswordHasher.Hash(password);
-                    await _scriptRepository.CreateUserAsync(userId, displayName, hash, isAdmin, dept.DepartmentId);
+                    await _scriptRepository.CreateUserAsync(userId, displayName, hash, isAdmin, dept!.DepartmentId);
 
-                    // Audit trail
                     await _scriptRepository.LogAdminActionAsync(
                         _currentAdminUserId,
                         "UserCreated",
@@ -149,9 +116,8 @@ namespace KabarakScriptRunnerApp
             {
                 try
                 {
-                    await _scriptRepository.UpdateUserAsync(_existingUser!.UserId, displayName, isAdmin, dept.DepartmentId);
+                    await _scriptRepository.UpdateUserAsync(_existingUser!.UserId, displayName, isAdmin, dept!.DepartmentId);
 
-                    // Audit trail
                     await _scriptRepository.LogAdminActionAsync(
                         _currentAdminUserId,
                         "UserUpdated",

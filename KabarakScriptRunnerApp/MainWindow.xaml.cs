@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using KabarakScriptRunner.Data.Models;
 using KabarakScriptRunner.Data.Repositories;
+using KabarakScriptRunnerApp.Validation;
 using Microsoft.Win32;
 
 namespace KabarakScriptRunnerApp
@@ -208,7 +209,6 @@ namespace KabarakScriptRunnerApp
         {
             if (_currentUser == null || !_currentUser.IsAdmin) return;
 
-            // Pass current admin's UserId for audit logging
             var window = new AssignScriptsWindow(_scriptRepository, _currentUser.UserId) { Owner = this };
             window.ShowDialog();
 
@@ -259,6 +259,9 @@ namespace KabarakScriptRunnerApp
             }
         }
 
+        // ============================================
+        // RUN — with FluentValidation
+        // ============================================
         private async void btnRun_Click(object sender, RoutedEventArgs e)
         {
             if (_currentUser == null || _currentDepartment == null)
@@ -269,72 +272,49 @@ namespace KabarakScriptRunnerApp
             }
 
             var selectedScripts = lstScripts.SelectedItems.Cast<Script>().ToList();
-            if (selectedScripts.Count == 0)
-            {
-                MessageBox.Show(
-                    "Please select at least one script from the list before clicking Run.",
-                    "No Script Selected", MessageBoxButton.OK, MessageBoxImage.Warning);
-                lstScripts.Focus();
-                return;
-            }
-
             var outputFolder = txtOutputFolder.Text.Trim();
-            if (string.IsNullOrWhiteSpace(outputFolder))
+            var dateFrom = dtpFrom.SelectedDate;
+            var dateTo = dtpTo.SelectedDate;
+
+            // ---------- FluentValidation ----------
+            var validator = new ScriptRunValidator();
+            var validationResult = validator.Validate((selectedScripts, outputFolder, dateFrom, dateTo));
+
+            if (!validationResult.IsValid)
             {
+                var messages = string.Join("\n\n",
+                    validationResult.Errors.Select(err => "• " + err.ErrorMessage));
+
                 MessageBox.Show(
-                    "Please select an output folder where the Excel files will be saved.",
-                    "No Output Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
-                txtOutputFolder.Focus();
+                    "Please fix the following before running:\n\n" + messages,
+                    "Validation Failed",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+
+                // Focus the offending control based on the first error
+                var firstError = validationResult.Errors.First().PropertyName;
+                switch (firstError)
+                {
+                    case "Scripts":
+                        lstScripts.Focus();
+                        break;
+                    case "OutputFolder":
+                        txtOutputFolder.Focus();
+                        break;
+                    case "DateFrom":
+                        dtpFrom.Focus();
+                        break;
+                    case "DateTo":
+                        dtpTo.Focus();
+                        break;
+                }
                 return;
             }
 
-            try
-            {
-                System.IO.Directory.CreateDirectory(outputFolder);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"The output folder could not be used:\n\n{ex.Message}",
-                    "Invalid Output Folder", MessageBoxButton.OK, MessageBoxImage.Error);
-                txtOutputFolder.Focus();
-                return;
-            }
+            // Ensure output directory exists (validator already attempted it, but be safe)
+            System.IO.Directory.CreateDirectory(outputFolder);
 
-            if (dtpFrom.SelectedDate == null)
-            {
-                MessageBox.Show("Please select a 'Date From' before running the script.",
-                    "Date From Missing", MessageBoxButton.OK, MessageBoxImage.Warning);
-                dtpFrom.Focus();
-                return;
-            }
-            if (dtpTo.SelectedDate == null)
-            {
-                MessageBox.Show("Please select a 'Date To' before running the script.",
-                    "Date To Missing", MessageBoxButton.OK, MessageBoxImage.Warning);
-                dtpTo.Focus();
-                return;
-            }
-
-            var dateFrom = dtpFrom.SelectedDate.Value;
-            var dateTo = dtpTo.SelectedDate.Value;
-
-            if (dateTo > DateTime.Today)
-            {
-                MessageBox.Show(
-                    $"The 'Date To' cannot be in the future.\n\n" +
-                    $"You selected: {dateTo:MMMM d, yyyy}",
-                    "Future Date Not Allowed", MessageBoxButton.OK, MessageBoxImage.Warning);
-                dtpTo.Focus();
-                return;
-            }
-            if (dateTo < dateFrom)
-            {
-                MessageBox.Show(
-                    "The 'Date To' cannot be earlier than the 'Date From'.",
-                    "Invalid Date Range", MessageBoxButton.OK, MessageBoxImage.Warning);
-                dtpTo.Focus();
-                return;
-            }
+            var dateFromValue = dateFrom!.Value;
+            var dateToValue = dateTo!.Value;
 
             // ---------- Validations passed ----------
 
@@ -370,7 +350,7 @@ namespace KabarakScriptRunnerApp
 
                     lblProgressStatus.Text = $"Running: {script.Name} ({completed + 1} of {total})";
 
-                    bool ok = await RunOneScriptAsync(script, dateFrom, dateTo, outputFolder, token);
+                    bool ok = await RunOneScriptAsync(script, dateFromValue, dateToValue, outputFolder, token);
                     completed++;
                     if (ok) succeeded++; else failed++;
 
@@ -481,7 +461,6 @@ namespace KabarakScriptRunnerApp
         {
             if (_currentUser == null || !_currentUser.IsAdmin) return;
 
-            // Pass current admin's UserId for audit logging
             var window = new ChangePasswordWindow(_scriptRepository, _currentUser.UserId) { Owner = this };
             window.ShowDialog();
         }
