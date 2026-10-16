@@ -82,7 +82,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include=".github\workflows\build.yaml" />
+    <None Include=".github\workflows\build.yml" />
   </ItemGroup>
 
 </Project>
