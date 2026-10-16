@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/Solution Items/">
+    <File Path="CodeDependencies.iss" />
     <File Path="KabarakScriptRunner.iss" />
   </Folder>
   <Project Path="KabarakScriptRunner.Core/KabarakScriptRunner.Core.csproj" Id="8f7a0d3e-0494-4307-9de4-8f0555059ebe" />

@@ -14,14 +14,17 @@
     <Product>Kabarak Script Runner</Product>
     <Company>Kabarak University</Company>
     <Copyright>Copyright © Kabarak University 2026</Copyright>
-    <Description>Desktop application for extracting Kabarak University
-                 data to Excel
-	</Description>
+    <Description>Desktop application for extracting Kabarak University data to Excel</Description>
     <ApplicationIcon>Resources\app.ico</ApplicationIcon>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <SelfContained>true</SelfContained>
-    <PublishSingleFile>true</PublishSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+
+    <!-- =========================================================== -->
+    <!--  FRAMEWORK-DEPENDENT PUBLISH (Option C)                     -->
+    <!--  Smaller installer, folder-based output, .NET installed by  -->
+    <!--  InnoDependencyInstaller if missing on the target machine.  -->
+    <!-- =========================================================== -->
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>false</PublishSingleFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -45,12 +48,12 @@
     <PackageReference Include="ToastNotifications" Version="2.5.1" />
     <PackageReference Include="ToastNotifications.Messages" Version="2.5.1" />
   </ItemGroup>
-	
+
   <ItemGroup>
     <ProjectReference Include="..\KabarakScriptRunner.Core\KabarakScriptRunner.Core.csproj" />
     <ProjectReference Include="..\KabarakScriptRunner.Data\KabarakScriptRunner.Data.csproj" />
   </ItemGroup>
-	
+
   <ItemGroup>
     <Resource Include="Resources\app.ico">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
@@ -65,7 +68,7 @@
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
   </ItemGroup>
-	
+
   <ItemGroup>
     <SplashScreen Include="Resources\splash.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
@@ -76,6 +79,10 @@
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include=".github\workflows\build.yaml" />
   </ItemGroup>
 
 </Project>
