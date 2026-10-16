@@ -39,14 +39,12 @@
 
                 <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center">
 
-                    <!-- Stacked papers with table icon -->
                     <Image Source="pack://application:,,,/Resources/icon-papers.png"
                            Width="64" Height="64"
                            Stretch="Uniform"
                            RenderOptions.BitmapScalingMode="HighQuality"
                            HorizontalAlignment="Center"/>
 
-                    <!-- Down arrow -->
                     <Image Source="pack://application:,,,/Resources/icon-arrow.png"
                            Width="40" Height="40"
                            Margin="0,12"
@@ -54,12 +52,11 @@
                            RenderOptions.BitmapScalingMode="HighQuality"
                            HorizontalAlignment="Center"/>
 
-                    <!-- Document with text lines -->
                     <Image Source="pack://application:,,,/Resources/icon-document.png"
-           Width="64" Height="64"
-           Stretch="Uniform"
-           RenderOptions.BitmapScalingMode="HighQuality"
-           HorizontalAlignment="Center"/>
+                           Width="64" Height="64"
+                           Stretch="Uniform"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           HorizontalAlignment="Center"/>
 
                 </StackPanel>
 
@@ -68,17 +65,17 @@
 
                     <StackPanel HorizontalAlignment="Center">
                         <TextBlock x:Name="lblUserId"
-                   Text="-"
-                   HorizontalAlignment="Center"
-                   FontWeight="Bold"/>
+                                   Text="-"
+                                   HorizontalAlignment="Center"
+                                   FontWeight="Bold"/>
                         <TextBlock x:Name="lblUserName"
-                   Text="-"
-                   HorizontalAlignment="Center"/>
+                                   Text="-"
+                                   HorizontalAlignment="Center"/>
                         <TextBlock x:Name="lblDepartment"
-                   Text="-"
-                   HorizontalAlignment="Center"
-                   FontStyle="Italic"
-                   Margin="0,4,0,0"/>
+                                   Text="-"
+                                   HorizontalAlignment="Center"
+                                   FontStyle="Italic"
+                                   Margin="0,4,0,0"/>
                     </StackPanel>
 
                     <Button x:Name="btnLogout"
@@ -88,24 +85,58 @@
                             HorizontalAlignment="Center"
                             Cursor="Hand"
                             ToolTip="Log out of the application"
-                           Click="btnLogout_Click"/>
+                            Click="btnLogout_Click"/>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- CENTER: script list -->
+        <!-- CENTER: search + script list -->
         <Border Grid.Column="1" BorderBrush="#A0A0A0" BorderThickness="1" Background="White" Margin="0,0,8,0">
             <Grid>
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Text="Available Scripts" FontWeight="Bold"
-                           Margin="8,6,8,6" FontSize="13"/>
+                           Margin="8,6,8,4" FontSize="13"/>
+
+                <!-- NEW: Search box + count -->
+                <Grid Grid.Row="1" Margin="8,0,8,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBox x:Name="txtScriptSearch"
+                             Grid.Column="0"
+                             Height="28"
+                             Padding="6,3"
+                             VerticalContentAlignment="Center"
+                             TextChanged="txtScriptSearch_TextChanged"/>
+
+                    <TextBlock x:Name="lblScriptSearchHint"
+                               Grid.Column="0"
+                               Text="🔍  Search scripts by name, category, or department..."
+                               Foreground="#999"
+                               FontStyle="Italic"
+                               Margin="10,0,0,0"
+                               VerticalAlignment="Center"
+                               IsHitTestVisible="False"
+                               Panel.ZIndex="1"/>
+
+                    <TextBlock x:Name="lblScriptCount"
+                               Grid.Column="1"
+                               Foreground="#666"
+                               FontStyle="Italic"
+                               VerticalAlignment="Center"
+                               Margin="10,0,0,0"
+                               Text=""/>
+                </Grid>
 
                 <ListBox x:Name="lstScripts"
-                         Grid.Row="1"
+                         Grid.Row="2"
                          BorderThickness="0"
                          SelectionMode="Extended"
                          ScrollViewer.VerticalScrollBarVisibility="Auto"
@@ -113,23 +144,34 @@
                          SelectionChanged="lstScripts_SelectionChanged">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Name}"
-                                       FontWeight="SemiBold"
-                                       Margin="2,2"/>
+                            <StackPanel Margin="4,2">
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                <TextBlock Foreground="#999" FontSize="10">
+                                    <Run Text="{Binding Category}"/>
+                                    <Run Text=" • "/>
+                                    <Run Text="{Binding DepartmentName}"/>
+                                    <Run Text="  (v"/>
+                                    <Run Text="{Binding Version}"/>
+                                    <Run Text=")"/>
+                                </TextBlock>
+                            </StackPanel>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
+
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
                             <Setter Property="ToolTip">
                                 <Setter.Value>
-                                    <ToolTip MaxWidth="380">
+                                    <ToolTip MaxWidth="420">
                                         <StackPanel>
                                             <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="0,0,0,4"/>
                                             <TextBlock Text="{Binding Description}" TextWrapping="Wrap"/>
-                                            <TextBlock Text="{Binding Category}" Foreground="#777" FontStyle="Italic" Margin="0,4,0,0"/>
-                                            <TextBlock Foreground="#777" FontSize="11" Margin="0,4,0,0">
-                                                <Run Text="Department: "/>
+                                            <TextBlock Foreground="#777" FontStyle="Italic" Margin="0,6,0,0">
+                                                <Run Text="{Binding Category}"/>
+                                                <Run Text=" • Department: "/>
                                                 <Run Text="{Binding DepartmentName}"/>
+                                                <Run Text=" • v"/>
+                                                <Run Text="{Binding Version}"/>
                                             </TextBlock>
                                         </StackPanel>
                                     </ToolTip>
@@ -199,11 +241,13 @@
             <!-- Admin group -->
             <GroupBox Grid.Row="1" Header="Admin" Margin="0,0,0,10" Padding="8">
                 <WrapPanel>
-                    <Button x:Name="btnScripts"   Content="Scripts"        Width="78"  Height="28" Margin="0,0,6,6" Click="btnScripts_Click"/>
-                    <Button x:Name="btnUsers"     Content="Users"          Width="78"  Height="28" Margin="0,0,6,6" Click="btnUsers_Click"/>
-                    <Button x:Name="btnAssign"    Content="Assign scripts" Width="110" Height="28" Margin="0,0,6,6" Click="btnAssign_Click"/>
-                    <Button x:Name="btnOptions"   Content="Options"        Width="78"  Height="28" Margin="0,0,6,6" Click="btnOptions_Click"/>
-                    <Button x:Name="btnAccessLog" Content="Access Log"     Width="90"  Height="28" Margin="0,0,0,6" Click="btnAccessLog_Click"/>
+                    <Button x:Name="btnBatchExport" Content="Batch Export" Width="110" Height="28" Margin="0,0,6,6" Click="btnBatchExport_Click"/>
+                    <Button x:Name="btnDashboard"   Content="Dashboard"    Width="90"  Height="28" Margin="0,0,6,6" Click="btnDashboard_Click"/>
+                    <Button x:Name="btnScripts"     Content="Scripts"      Width="78"  Height="28" Margin="0,0,6,6" Click="btnScripts_Click"/>
+                    <Button x:Name="btnUsers"       Content="Users"        Width="78"  Height="28" Margin="0,0,6,6" Click="btnUsers_Click"/>
+                    <Button x:Name="btnAssign"      Content="Assign scripts" Width="110" Height="28" Margin="0,0,6,6" Click="btnAssign_Click"/>
+                    <Button x:Name="btnOptions"     Content="Options"      Width="78"  Height="28" Margin="0,0,6,6" Click="btnOptions_Click"/>
+                    <Button x:Name="btnAccessLog"   Content="Access Log"   Width="90"  Height="28" Margin="0,0,0,6" Click="btnAccessLog_Click"/>
                 </WrapPanel>
             </GroupBox>
 
@@ -217,7 +261,6 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <!-- NEW: Selected script banner -->
                     <Border Grid.Row="0"
                             Background="#E8F4FD"
                             BorderBrush="#4FC3F7"
@@ -239,7 +282,6 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Progress bar + percentage -->
                     <Grid Grid.Row="1">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -264,35 +306,33 @@
                                    MinWidth="44"/>
                     </Grid>
 
-                    <!-- Status line -->
                     <TextBlock x:Name="lblProgressStatus"
-                   Grid.Row="2"
-                   Text=""
-                   Margin="0,6,0,4"
-                   Foreground="#555"/>
+                               Grid.Row="2"
+                               Text=""
+                               Margin="0,6,0,4"
+                               Foreground="#555"/>
 
-                    <!-- Detailed log -->
                     <ListBox x:Name="lstProgressLog"
-                 Grid.Row="3"
-                 BorderThickness="1"
-                 BorderBrush="#D0D0D0"
-                 Background="White"
-                 FontFamily="Consolas"
-                 FontSize="11"
-                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                 ScrollViewer.VerticalScrollBarVisibility="Auto"
-                 SelectionMode="Single">
+                             Grid.Row="3"
+                             BorderThickness="1"
+                             BorderBrush="#D0D0D0"
+                             Background="White"
+                             FontFamily="Consolas"
+                             FontSize="11"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             SelectionMode="Single">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="4,1">
                                     <TextBlock Text="{Binding Timestamp}"
-                                   Foreground="#888"
-                                   Width="60"/>
+                                               Foreground="#888"
+                                               Width="60"/>
                                     <TextBlock Text="{Binding Icon}"
-                                   Width="20"
-                                   FontWeight="Bold"/>
+                                               Width="20"
+                                               FontWeight="Bold"/>
                                     <TextBlock Text="{Binding Message}"
-                                   TextWrapping="Wrap"/>
+                                               TextWrapping="Wrap"/>
                                 </StackPanel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>

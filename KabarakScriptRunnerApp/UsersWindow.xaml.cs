@@ -3,6 +3,7 @@ using System.Linq;
 using System.Windows;
 using KabarakScriptRunner.Data.Models;
 using KabarakScriptRunner.Data.Repositories;
+using KabarakScriptRunnerApp.Services;
 
 namespace KabarakScriptRunnerApp
 {
@@ -37,6 +38,7 @@ namespace KabarakScriptRunnerApp
         private async void btnRefresh_Click(object sender, RoutedEventArgs e)
         {
             await LoadUsersAsync();
+            ToastService.Information("User list refreshed.");
         }
 
         private async void btnNew_Click(object sender, RoutedEventArgs e)
@@ -47,7 +49,10 @@ namespace KabarakScriptRunnerApp
             };
 
             if (dlg.ShowDialog() == true)
+            {
+                ToastService.Success("User created successfully.");
                 await LoadUsersAsync();
+            }
         }
 
         private async void btnEdit_Click(object sender, RoutedEventArgs e)
@@ -65,7 +70,10 @@ namespace KabarakScriptRunnerApp
             };
 
             if (dlg.ShowDialog() == true)
+            {
+                ToastService.Success("User updated successfully.");
                 await LoadUsersAsync();
+            }
         }
 
         private async void btnToggle_Click(object sender, RoutedEventArgs e)
@@ -97,13 +105,14 @@ namespace KabarakScriptRunnerApp
                 bool newState = !selected.IsActive;
                 await _scriptRepository.SetUserActiveAsync(selected.UserId, newState);
 
-                // Audit trail
                 await _scriptRepository.LogAdminActionAsync(
                     _currentAdmin.UserId,
                     newState ? "UserActivated" : "UserDeactivated",
                     "User",
                     selected.UserId,
                     $"{(newState ? "Activated" : "Deactivated")} user '{selected.UserId}' ({selected.DisplayName}).");
+
+                ToastService.Success($"User '{selected.UserId}' {(newState ? "activated" : "deactivated")}.");
 
                 await LoadUsersAsync();
             }

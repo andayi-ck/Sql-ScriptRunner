@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Data;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using KabarakScriptRunner.Core.Services;
@@ -11,16 +12,21 @@ namespace KabarakScriptRunnerApp
     public partial class AccessLogWindow : Window
     {
         private readonly ScriptRepository _scriptRepository;
+        private readonly DashboardRepository _dashboardRepository;
 
-        public AccessLogWindow(ScriptRepository scriptRepository)
+        public AccessLogWindow(ScriptRepository scriptRepository, DashboardRepository dashboardRepository)
         {
             InitializeComponent();
             _scriptRepository = scriptRepository;
+            _dashboardRepository = dashboardRepository;
 
             Loaded += async (_, _) => await InitializeAsync();
         }
 
-        private async System.Threading.Tasks.Task InitializeAsync()
+        // ============================================
+        // INITIALIZE
+        // ============================================
+        private async Task InitializeAsync()
         {
             try
             {
@@ -38,7 +44,7 @@ namespace KabarakScriptRunnerApp
                 dtpFrom.SelectedDate = DateTime.Today.AddDays(-30);
                 dtpTo.SelectedDate = DateTime.Today;
 
-                await LoadActiveTabAsync();
+                await LoadScriptRunsAsync();
             }
             catch (Exception ex)
             {
@@ -47,17 +53,22 @@ namespace KabarakScriptRunnerApp
             }
         }
 
+        // ============================================
+        // TAB LOADING
+        // ============================================
         private bool IsScriptRunsTab => tabLogs.SelectedIndex == 0;
 
-        private async System.Threading.Tasks.Task LoadActiveTabAsync()
+        private async Task LoadActiveTabAsync()
         {
             if (IsScriptRunsTab)
                 await LoadScriptRunsAsync();
-            else
+            else if (tabLogs.SelectedIndex == 1)
                 await LoadAdminActionsAsync();
+            else
+                await LoadAnalyticsAsync();
         }
 
-        private async System.Threading.Tasks.Task LoadScriptRunsAsync()
+        private async Task LoadScriptRunsAsync()
         {
             try
             {
@@ -78,15 +89,31 @@ namespace KabarakScriptRunnerApp
             }
         }
 
-        private async System.Threading.Tasks.Task LoadAdminActionsAsync()
+        private async Task LoadAdminActionsAsync()
         {
             try
             {
                 var table = await _scriptRepository.GetAdminActionsAsync(
                     dtpFrom.SelectedDate, dtpTo.SelectedDate);
 
-                dgActions.ItemsSource = table.DefaultView;
-                lblRowCount.Text = $"{table.Rows.Count} admin action(s)";
+                var selected = (cmbActionType?.SelectedItem as ComboBoxItem)?.Content?.ToString();
+
+                if (selected != null && selected != "(All)" && table.Rows.Count > 0)
+                {
+                    var filtered = table.Clone();
+                    foreach (DataRow row in table.Rows)
+                    {
+                        if (row["ActionType"]?.ToString() == selected)
+                            filtered.ImportRow(row);
+                    }
+                    dgActions.ItemsSource = filtered.DefaultView;
+                    lblRowCount.Text = $"{filtered.Rows.Count} of {table.Rows.Count} admin action(s)";
+                }
+                else
+                {
+                    dgActions.ItemsSource = table.DefaultView;
+                    lblRowCount.Text = $"{table.Rows.Count} admin action(s)";
+                }
             }
             catch (Exception ex)
             {
@@ -95,10 +122,123 @@ namespace KabarakScriptRunnerApp
             }
         }
 
+        private async Task LoadAnalyticsAsync()
+        {
+            try
+            {
+                // 1. Logins per day — line chart
+                var loginsPerDay = (await _dashboardRepository.GetLoginsPerDayAsync(30)).ToList();
+                chartLogins.Series = new LiveChartsCore.ISeries[]
+                {
+                    new LiveChartsCore.SkiaSharpView.LineSeries<int>
+                    {
+                        Name = "Logins",
+                        Values = loginsPerDay.Select(x => x.Total).Select(Convert.ToInt32).ToArray(),
+                        Stroke = new LiveChartsCore.SkiaSharpView.Painting.SolidColorPaint(
+                            SkiaSharp.SKColor.Parse("#1565C0")) { StrokeThickness = 3 },
+                        Fill = new LiveChartsCore.SkiaSharpView.Painting.SolidColorPaint(
+                            SkiaSharp.SKColor.Parse("#4FC3F7").WithAlpha(60)),
+                        GeometrySize = 8
+                    }
+                };
+                chartLogins.XAxes = new[]
+                {
+                    new LiveChartsCore.SkiaSharpView.Axis
+                    {
+                        Labels = loginsPerDay.Select(x => x.Period).ToArray(),
+                        LabelsRotation = 45,
+                        TextSize = 10
+                    }
+                };
+
+                // 2. Login success vs failure — pie
+                var stats = await _dashboardRepository.GetLoginStatsAsync(30);
+                chartLoginPie.Series = new LiveChartsCore.ISeries[]
+                {
+                    new LiveChartsCore.SkiaSharpView.PieSeries<int>
+                    {
+                        Values = new[] { stats.Success, stats.Failed },
+                        Name = "Logins",
+                        DataLabelsPaint = new LiveChartsCore.SkiaSharpView.Painting.SolidColorPaint(
+                            SkiaSharp.SKColors.White),
+                        DataLabelsSize = 12,
+                        DataLabelsPosition = LiveChartsCore.Measure.PolarLabelsPosition.Middle,
+                        DataLabelsFormatter = point => point.Coordinate.PrimaryValue.ToString()
+                    }
+                };
+                chartLoginPie.LegendPosition = LiveChartsCore.Measure.LegendPosition.Right;
+                chartLoginPie.LegendTextPaint = new LiveChartsCore.SkiaSharpView.Painting.SolidColorPaint(
+                    SkiaSharp.SKColors.Black);
+                chartLoginPie.LegendTextSize = 11;
+
+                // 3. Top scripts — bar
+                var topScripts = (await _dashboardRepository.GetTopScriptsByRunsAsync(10)).ToList();
+                chartTopScripts.Series = new LiveChartsCore.ISeries[]
+                {
+                    new LiveChartsCore.SkiaSharpView.RowSeries<int>
+                    {
+                        Name = "Runs",
+                        Values = topScripts.Select(x => x.Total).ToArray(),
+                        Fill = new LiveChartsCore.SkiaSharpView.Painting.SolidColorPaint(
+                            SkiaSharp.SKColor.Parse("#4FC3F7")),
+                        Stroke = null,
+                        DataLabelsPaint = new LiveChartsCore.SkiaSharpView.Painting.SolidColorPaint(
+                            SkiaSharp.SKColors.Black),
+                        DataLabelsPosition = LiveChartsCore.Measure.DataLabelsPosition.End,
+                        DataLabelsSize = 10
+                    }
+                };
+                chartTopScripts.YAxes = new[]
+                {
+                    new LiveChartsCore.SkiaSharpView.Axis
+                    {
+                        Labels = topScripts.Select(x => x.Label).ToArray(),
+                        TextSize = 10
+                    }
+                };
+
+                // 4. Actions by user — bar
+                var actionsByUser = (await _dashboardRepository.GetActionsByUserAsync(30)).ToList();
+                chartActionsByUser.Series = new LiveChartsCore.ISeries[]
+                {
+                    new LiveChartsCore.SkiaSharpView.RowSeries<int>
+                    {
+                        Name = "Actions",
+                        Values = actionsByUser.Select(x => x.Total).ToArray(),
+                        Fill = new LiveChartsCore.SkiaSharpView.Painting.SolidColorPaint(
+                            SkiaSharp.SKColor.Parse("#7EC8F2")),
+                        Stroke = null
+                    }
+                };
+                chartActionsByUser.YAxes = new[]
+                {
+                    new LiveChartsCore.SkiaSharpView.Axis
+                    {
+                        Labels = actionsByUser.Select(x => x.Label).ToArray(),
+                        TextSize = 10
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to load analytics:\n\n{ex.Message}",
+                    "Analytics Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        // ============================================
+        // EVENT HANDLERS
+        // ============================================
         private async void tabLogs_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!IsLoaded) return;
             await LoadActiveTabAsync();
+        }
+
+        private async void cmbActionType_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!IsLoaded) return;
+            await LoadAdminActionsAsync();
         }
 
         private async void btnApply_Click(object sender, RoutedEventArgs e)
@@ -112,6 +252,7 @@ namespace KabarakScriptRunnerApp
             dtpTo.SelectedDate = DateTime.Today;
             cmbUser.SelectedIndex = 0;
             cmbStatus.SelectedIndex = 0;
+            if (cmbActionType != null) cmbActionType.SelectedIndex = 0;
             await LoadActiveTabAsync();
         }
 
@@ -142,8 +283,21 @@ namespace KabarakScriptRunnerApp
                     table = await _scriptRepository.GetAdminActionsAsync(
                         dtpFrom.SelectedDate, dtpTo.SelectedDate);
 
+                    var selected = (cmbActionType?.SelectedItem as ComboBoxItem)?.Content?.ToString();
+                    if (selected != null && selected != "(All)" && table.Rows.Count > 0)
+                    {
+                        var filtered = table.Clone();
+                        foreach (DataRow row in table.Rows)
+                        {
+                            if (row["ActionType"]?.ToString() == selected)
+                                filtered.ImportRow(row);
+                        }
+                        table = filtered;
+                    }
+
                     title = "Kabarak Script Runner — Admin Actions";
                     subtitle = $"Filter: {dtpFrom.SelectedDate:yyyy-MM-dd} to {dtpTo.SelectedDate:yyyy-MM-dd}";
+                    if (selected != null && selected != "(All)") subtitle += $" • Action: {selected}";
                 }
 
                 if (table.Rows.Count == 0)
@@ -154,7 +308,9 @@ namespace KabarakScriptRunnerApp
                 }
 
                 string outputFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                var path = PdfExportService.ExportDataTableToPdf(table, outputFolder, title, subtitle);
+
+                var path = PdfReportService.GenerateDataReport(
+                    table, outputFolder, title, subtitle, generatedBy: "Administrator");
 
                 MessageBox.Show($"PDF exported to:\n\n{path}",
                     "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);

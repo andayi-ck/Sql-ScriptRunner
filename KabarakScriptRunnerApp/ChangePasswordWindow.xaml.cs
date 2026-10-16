@@ -4,7 +4,8 @@ using System.Windows;
 using KabarakScriptRunner.Core.Security;
 using KabarakScriptRunner.Data.Models;
 using KabarakScriptRunner.Data.Repositories;
-using KabarakScriptRunnerApp.Validation; // Ensure this matches your validator namespace
+using KabarakScriptRunnerApp.Services;
+using KabarakScriptRunnerApp.Validation;
 
 namespace KabarakScriptRunnerApp
 {
@@ -43,7 +44,6 @@ namespace KabarakScriptRunnerApp
             var newPwd = txtNew.Password;
             var confirm = txtConfirm.Password;
 
-            // Execute pattern validation rule block
             var validator = new ChangePasswordValidator();
             var result = validator.Validate((user, newPwd, confirm));
 
@@ -65,9 +65,7 @@ namespace KabarakScriptRunnerApp
                     user.UserId,
                     $"Password reset for user '{user.UserId}' ({user.DisplayName}).");
 
-                MessageBox.Show(
-                    $"Password for user '{user.UserId}' ({user.DisplayName}) has been updated.",
-                    "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                ToastService.Success($"Password for '{user.UserId}' updated.");
 
                 DialogResult = true;
                 Close();

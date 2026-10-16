@@ -8,6 +8,7 @@ namespace KabarakScriptRunner.Data.Models
         private int? _departmentId;
 
         public int ScriptId { get; set; }
+        public int Version { get; set; } = 1;   // NEW
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string SqlText { get; set; } = string.Empty;

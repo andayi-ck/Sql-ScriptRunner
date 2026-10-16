@@ -1,6 +1,7 @@
 ﻿<Window x:Class="KabarakScriptRunnerApp.AccessLogWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
         Title="Access Log"
         Height="680" Width="1200"
         WindowStartupLocation="CenterOwner"
@@ -118,9 +119,24 @@
                             BorderBrush="#E0E0E0"
                             BorderThickness="0,0,0,1"
                             Padding="8,6">
-                        <TextBlock TextWrapping="Wrap"
-                                   Foreground="#555"
-                                   Text="Chronological record of admin actions: user creation/edits, password resets, script reassignments, user activation/deactivation."/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Filter by action:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox x:Name="cmbActionType" Width="180" Height="24"
+                                      SelectionChanged="cmbActionType_SelectionChanged">
+                                <ComboBoxItem Content="(All)" IsSelected="True"/>
+                                <ComboBoxItem Content="LoginSuccess"/>
+                                <ComboBoxItem Content="LoginFailure"/>
+                                <ComboBoxItem Content="Logout"/>
+                                <ComboBoxItem Content="ScriptViewed"/>
+                                <ComboBoxItem Content="ScriptRan"/>
+                                <ComboBoxItem Content="UserCreated"/>
+                                <ComboBoxItem Content="UserUpdated"/>
+                                <ComboBoxItem Content="UserActivated"/>
+                                <ComboBoxItem Content="UserDeactivated"/>
+                                <ComboBoxItem Content="PasswordChanged"/>
+                                <ComboBoxItem Content="ScriptReassigned"/>
+                            </ComboBox>
+                        </StackPanel>
                     </Border>
 
                     <DataGrid x:Name="dgActions"
@@ -145,6 +161,81 @@
                     </DataGrid>
                 </Grid>
             </TabItem>
+
+            <TabItem Header="Analytics">
+                <Grid Margin="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Login activity chart -->
+                    <Border Grid.Row="1" Grid.Column="0" Background="White"
+                BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4"
+                Margin="4" Padding="10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Logins Per Day (Last 30 days)"
+                           FontWeight="Bold" Margin="0,0,0,8"/>
+                            <lvc:CartesianChart Grid.Row="1" x:Name="chartLogins"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Login success vs failure -->
+                    <Border Grid.Row="1" Grid.Column="1" Background="White"
+                BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4"
+                Margin="4" Padding="10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Login Success vs Failure (Last 30 days)"
+                           FontWeight="Bold" Margin="0,0,0,8"/>
+                            <lvc:PieChart Grid.Row="1" x:Name="chartLoginPie"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Top scripts -->
+                    <Border Grid.Row="2" Grid.Column="0" Background="White"
+                BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4"
+                Margin="4" Padding="10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Top Scripts by Run Count"
+                           FontWeight="Bold" Margin="0,0,0,8"/>
+                            <lvc:CartesianChart Grid.Row="1" x:Name="chartTopScripts"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Actions by user -->
+                    <Border Grid.Row="2" Grid.Column="1" Background="White"
+                BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4"
+                Margin="4" Padding="10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Actions by User (Last 30 days)"
+                           FontWeight="Bold" Margin="0,0,0,8"/>
+                            <lvc:CartesianChart Grid.Row="1" x:Name="chartActionsByUser"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
 
         </TabControl>
 

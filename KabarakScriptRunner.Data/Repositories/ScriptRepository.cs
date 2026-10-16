@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Threading.Tasks;
 using Dapper;
@@ -87,7 +88,7 @@ namespace KabarakScriptRunner.Data.Repositories
             {
                 using var connection = _context.CreateConnection();
                 const string sql = @"
-                    SELECT s.ScriptId, s.Name, s.Description, s.SqlText, s.Category,
+                    SELECT s.ScriptId, s.Version, s.Name, s.Description, s.SqlText, s.Category,
                            s.NeedsDateFrom, s.NeedsDateTo, s.IsActive,
                            s.DepartmentId, d.DepartmentName
                     FROM app.Scripts s
@@ -105,7 +106,7 @@ namespace KabarakScriptRunner.Data.Repositories
             {
                 using var connection = _context.CreateConnection();
                 const string sql = @"
-                    SELECT s.ScriptId, s.Name, s.Description, s.SqlText, s.Category,
+                    SELECT s.ScriptId, s.Version, s.Name, s.Description, s.SqlText, s.Category,
                            s.NeedsDateFrom, s.NeedsDateTo, s.IsActive,
                            s.DepartmentId, d.DepartmentName
                     FROM app.Scripts s
@@ -123,6 +124,78 @@ namespace KabarakScriptRunner.Data.Repositories
                 using var connection = _context.CreateConnection();
                 const string sql = "UPDATE app.Scripts SET DepartmentId = @DepartmentId WHERE ScriptId = @ScriptId";
                 await connection.ExecuteAsync(sql, new { ScriptId = scriptId, DepartmentId = departmentId });
+            });
+        }
+
+        // ============================================
+        // SCRIPT VERSIONING
+        // ============================================
+
+        /// <summary>
+        /// Returns the archived history of a script, newest first.
+        /// </summary>
+        public async Task<IEnumerable<ScriptVersion>> GetScriptVersionsAsync(int scriptId)
+        {
+            return await RunWithRetryAsync(async () =>
+            {
+                using var connection = _context.CreateConnection();
+                const string sql = @"
+                    SELECT VersionId, ScriptId, Version, Name, Description, SqlText,
+                           Category, DepartmentId, NeedsDateFrom, NeedsDateTo, IsActive,
+                           ArchivedAt, ArchivedBy
+                    FROM app.ScriptVersions
+                    WHERE ScriptId = @ScriptId
+                    ORDER BY Version DESC;";
+
+                return await connection.QueryAsync<ScriptVersion>(sql, new { ScriptId = scriptId });
+            });
+        }
+
+        /// <summary>
+        /// Returns a specific archived version of a script.
+        /// </summary>
+        public async Task<ScriptVersion?> GetScriptVersionAsync(int scriptId, int version)
+        {
+            return await RunWithRetryAsync(async () =>
+            {
+                using var connection = _context.CreateConnection();
+                const string sql = @"
+                    SELECT VersionId, ScriptId, Version, Name, Description, SqlText,
+                           Category, DepartmentId, NeedsDateFrom, NeedsDateTo, IsActive,
+                           ArchivedAt, ArchivedBy
+                    FROM app.ScriptVersions
+                    WHERE ScriptId = @ScriptId AND Version = @Version;";
+
+                return await connection.QueryFirstOrDefaultAsync<ScriptVersion>(
+                    sql, new { ScriptId = scriptId, Version = version });
+            });
+        }
+
+        /// <summary>
+        /// Restores a script to a previous version.
+        /// The trigger archives the current version automatically.
+        /// </summary>
+        public async Task RestoreScriptVersionAsync(int scriptId, int versionToRestore)
+        {
+            await RunWithRetryAsync(async () =>
+            {
+                using var connection = _context.CreateConnection();
+                const string sql = @"
+                    UPDATE app.Scripts
+                    SET Name          = v.Name,
+                        Description   = v.Description,
+                        SqlText       = v.SqlText,
+                        Category      = v.Category,
+                        DepartmentId  = v.DepartmentId,
+                        NeedsDateFrom = v.NeedsDateFrom,
+                        NeedsDateTo   = v.NeedsDateTo,
+                        IsActive      = v.IsActive
+                    FROM app.Scripts s
+                    INNER JOIN app.ScriptVersions v
+                        ON v.ScriptId = s.ScriptId AND v.Version = @Version
+                    WHERE s.ScriptId = @ScriptId;";
+
+                await connection.ExecuteAsync(sql, new { ScriptId = scriptId, Version = versionToRestore });
             });
         }
 

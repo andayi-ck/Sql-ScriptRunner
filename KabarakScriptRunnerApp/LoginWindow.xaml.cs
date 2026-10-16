@@ -60,6 +60,8 @@ namespace KabarakScriptRunnerApp
                 if (user == null)
                 {
                     lblError.Text = "Incorrect username, password, or department. Please try again.";
+                    await LogAuditAsync(username, "LoginFailure", "User", username,
+                        $"Login failed: user not found or inactive. Department attempted: {selectedDept.DepartmentName}");
                     return;
                 }
 
@@ -68,6 +70,8 @@ namespace KabarakScriptRunnerApp
                 if (!passwordOk)
                 {
                     lblError.Text = "Incorrect username, password, or department. Please try again.";
+                    await LogAuditAsync(username, "LoginFailure", "User", username,
+                        $"Login failed: incorrect password. Department attempted: {selectedDept.DepartmentName}");
                     return;
                 }
 
@@ -77,13 +81,20 @@ namespace KabarakScriptRunnerApp
                     if (user.DepartmentId == null || user.DepartmentId != selectedDept.DepartmentId)
                     {
                         lblError.Text = "Incorrect username, password, or department. Please try again.";
+                        await LogAuditAsync(username, "LoginFailure", "User", username,
+                            $"Login failed: department mismatch. User's department: {user.DepartmentName ?? "(none)"}. " +
+                            $"Attempted: {selectedDept.DepartmentName}");
                         return;
                     }
                 }
-                // Admins can pick any department — it will just be their "view filter" in the main window.
 
+                // 4. Success
                 AuthenticatedUser = user;
                 SelectedDepartment = selectedDept;
+
+                await LogAuditAsync(user.UserId, "LoginSuccess", "User", user.UserId,
+                    $"Logged in from department '{selectedDept.DepartmentName}'. IsAdmin={user.IsAdmin}.");
+
                 DialogResult = true;
                 Close();
             }
@@ -92,6 +103,22 @@ namespace KabarakScriptRunnerApp
                 lblError.Text = $"Error: {ex.Message}";
             }
         }
+
+        /// <summary>
+        /// Writes an audit trail row. Swallows errors so auditing never blocks the user.
+        /// </summary>
+        private async Task LogAuditAsync(string userId, string actionType, string? targetType, string? targetId, string? details)
+        {
+            try
+            {
+                await _scriptRepository.LogAdminActionAsync(userId, actionType, targetType, targetId, details);
+            }
+            catch
+            {
+                // Never let an audit failure break login.
+            }
+        }
+
 
         private void btnCancel_Click(object sender, RoutedEventArgs e)
         {

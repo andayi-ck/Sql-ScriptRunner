@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Windows;
 using KabarakScriptRunner.Data.Repositories;
+using KabarakScriptRunnerApp.Services;
 using Microsoft.Win32;
 
 namespace KabarakScriptRunnerApp
@@ -54,6 +55,7 @@ namespace KabarakScriptRunnerApp
 
                 lblStatus.Foreground = System.Windows.Media.Brushes.Green;
                 lblStatus.Text = "Options saved successfully.";
+                ToastService.Success("Options saved.");
             }
             catch (Exception ex)
             {

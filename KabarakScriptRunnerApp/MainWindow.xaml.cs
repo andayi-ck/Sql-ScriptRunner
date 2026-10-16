@@ -1,14 +1,17 @@
-﻿using System;
+﻿using KabarakScriptRunner.Data.Models;
+using KabarakScriptRunner.Data.Repositories;
+using KabarakScriptRunnerApp.Services;
+using KabarakScriptRunnerApp.Validation;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Win32;
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using KabarakScriptRunner.Data.Models;
-using KabarakScriptRunner.Data.Repositories;
-using KabarakScriptRunnerApp.Validation;
-using Microsoft.Win32;
 
 namespace KabarakScriptRunnerApp
 {
@@ -21,6 +24,8 @@ namespace KabarakScriptRunnerApp
 
         private readonly ObservableCollection<LogEntry> _progressEntries = new();
 
+        private List<Script> _allLoadedScripts = new();
+
         public bool LogoutRequested { get; private set; }
 
         public MainWindow(ScriptRepository scriptRepository)
@@ -30,7 +35,6 @@ namespace KabarakScriptRunnerApp
 
             lstProgressLog.ItemsSource = _progressEntries;
 
-            // Block future dates on Date To
             dtpTo.DisplayDateEnd = DateTime.Today;
             dtpTo.SelectedDateChanged += (_, _) =>
             {
@@ -55,6 +59,8 @@ namespace KabarakScriptRunnerApp
             btnOptions.IsEnabled = isAdmin;
             btnAccessLog.IsEnabled = isAdmin;
             btnChangePassword.IsEnabled = isAdmin;
+            btnBatchExport.IsEnabled = isAdmin;
+            btnDashboard.IsEnabled = isAdmin;
 
             btnScripts.IsEnabled = true;
 
@@ -82,6 +88,9 @@ namespace KabarakScriptRunnerApp
             }
         }
 
+        // ============================================
+        // SCRIPTS: load + search filter
+        // ============================================
         private async Task LoadScriptsAsync()
         {
             if (_currentUser == null) return;
@@ -90,7 +99,55 @@ namespace KabarakScriptRunnerApp
                 _currentDepartment?.DepartmentId,
                 _currentUser.IsAdmin);
 
-            lstScripts.ItemsSource = scripts;
+            _allLoadedScripts = scripts.ToList();
+            ApplyScriptFilter();
+        }
+
+        private void ApplyScriptFilter()
+        {
+            var query = txtScriptSearch.Text.Trim().ToLowerInvariant();
+
+            IEnumerable<Script> filtered = _allLoadedScripts;
+
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                filtered = filtered.Where(s =>
+                    (s.Name ?? "").ToLowerInvariant().Contains(query) ||
+                    (s.Description ?? "").ToLowerInvariant().Contains(query) ||
+                    (s.Category ?? "").ToLowerInvariant().Contains(query) ||
+                    (s.DepartmentName ?? "").ToLowerInvariant().Contains(query));
+            }
+
+            var list = filtered.ToList();
+            lstScripts.ItemsSource = list;
+
+            lblScriptCount.Text = list.Count == _allLoadedScripts.Count
+                ? $"{_allLoadedScripts.Count} script(s)"
+                : $"{list.Count} of {_allLoadedScripts.Count}";
+        }
+
+        private void txtScriptSearch_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            lblScriptSearchHint.Visibility = string.IsNullOrEmpty(txtScriptSearch.Text)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+            ApplyScriptFilter();
+        }
+
+        // ============================================
+        // AUDIT HELPER
+        // ============================================
+        private async Task LogAuditAsync(string userId, string actionType, string? targetType, string? targetId, string? details)
+        {
+            try
+            {
+                await _scriptRepository.LogAdminActionAsync(userId, actionType, targetType, targetId, details);
+            }
+            catch
+            {
+                // Never let an audit failure break the app.
+            }
         }
 
         // ============================================
@@ -121,7 +178,7 @@ namespace KabarakScriptRunnerApp
         }
 
         // ============================================
-        // SELECTION FEEDBACK
+        // SELECTION FEEDBACK + ScriptViewed audit
         // ============================================
         private void lstScripts_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -143,6 +200,13 @@ namespace KabarakScriptRunnerApp
                     lblSelectedScript.Text = script.Name;
                     lblSelectedScript.FontStyle = FontStyles.Normal;
                     lblProgressStatus.Text = $"Ready to run: {script.Name}";
+
+                    if (_currentUser != null)
+                    {
+                        _ = LogAuditAsync(_currentUser.UserId, "ScriptViewed", "Script",
+                            script.ScriptId.ToString(),
+                            $"Viewed script '{script.Name}' (v{script.Version}).");
+                    }
                 }
             }
             else
@@ -167,9 +231,7 @@ namespace KabarakScriptRunnerApp
             };
 
             if (dialog.ShowDialog() == true)
-            {
                 txtOutputFolder.Text = dialog.FolderName;
-            }
         }
 
         // ============================================
@@ -215,6 +277,14 @@ namespace KabarakScriptRunnerApp
             _ = LoadScriptsAsync();
         }
 
+        private void btnBatchExport_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentUser == null || !_currentUser.IsAdmin) return;
+
+            var window = new BatchExportWindow(_scriptRepository, _currentUser) { Owner = this };
+            window.ShowDialog();
+        }
+
         private void btnOptions_Click(object sender, RoutedEventArgs e)
         {
             if (_currentUser == null || !_currentUser.IsAdmin) return;
@@ -227,7 +297,17 @@ namespace KabarakScriptRunnerApp
         {
             if (_currentUser == null || !_currentUser.IsAdmin) return;
 
-            var window = new AccessLogWindow(_scriptRepository) { Owner = this };
+            var dashboardRepo = App.ServiceProvider.GetRequiredService<DashboardRepository>();
+            var window = new AccessLogWindow(_scriptRepository, dashboardRepo) { Owner = this };
+            window.ShowDialog();
+        }
+
+        private void btnDashboard_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentUser == null || !_currentUser.IsAdmin) return;
+
+            var repo = App.ServiceProvider.GetRequiredService<DashboardRepository>();
+            var window = new DashboardWindow(repo) { Owner = this };
             window.ShowDialog();
         }
 
@@ -238,12 +318,12 @@ namespace KabarakScriptRunnerApp
         {
             await LoadScriptsAsync();
             AppendProgress("Script list refreshed.");
+            ToastService.Information("Script list refreshed.");
         }
 
         private void btnCancelRun_Click(object sender, RoutedEventArgs e)
         {
-            if (_runCts == null || _runCts.IsCancellationRequested)
-                return;
+            if (_runCts == null || _runCts.IsCancellationRequested) return;
 
             var confirm = MessageBox.Show(
                 "Cancel the currently running query?\n\n" +
@@ -260,7 +340,7 @@ namespace KabarakScriptRunnerApp
         }
 
         // ============================================
-        // RUN — with FluentValidation
+        // RUN
         // ============================================
         private async void btnRun_Click(object sender, RoutedEventArgs e)
         {
@@ -276,7 +356,6 @@ namespace KabarakScriptRunnerApp
             var dateFrom = dtpFrom.SelectedDate;
             var dateTo = dtpTo.SelectedDate;
 
-            // ---------- FluentValidation ----------
             var validator = new ScriptRunValidator();
             var validationResult = validator.Validate((selectedScripts, outputFolder, dateFrom, dateTo));
 
@@ -290,33 +369,21 @@ namespace KabarakScriptRunnerApp
                     "Validation Failed",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
 
-                // Focus the offending control based on the first error
                 var firstError = validationResult.Errors.First().PropertyName;
                 switch (firstError)
                 {
-                    case "Scripts":
-                        lstScripts.Focus();
-                        break;
-                    case "OutputFolder":
-                        txtOutputFolder.Focus();
-                        break;
-                    case "DateFrom":
-                        dtpFrom.Focus();
-                        break;
-                    case "DateTo":
-                        dtpTo.Focus();
-                        break;
+                    case "Scripts": lstScripts.Focus(); break;
+                    case "OutputFolder": txtOutputFolder.Focus(); break;
+                    case "DateFrom": dtpFrom.Focus(); break;
+                    case "DateTo": dtpTo.Focus(); break;
                 }
                 return;
             }
 
-            // Ensure output directory exists (validator already attempted it, but be safe)
             System.IO.Directory.CreateDirectory(outputFolder);
 
             var dateFromValue = dateFrom!.Value;
             var dateToValue = dateTo!.Value;
-
-            // ---------- Validations passed ----------
 
             btnRun.IsEnabled = false;
             btnRefresh.IsEnabled = false;
@@ -367,6 +434,13 @@ namespace KabarakScriptRunnerApp
                     lblProgressStatus.Text = $"Done. Succeeded: {succeeded}, Failed: {failed}.";
 
                 lblProgressPercent.Text = cancelled ? $"{prgProgress.Value:0}%" : "100%";
+
+                if (cancelled)
+                    ToastService.Warning($"Run cancelled. {succeeded} of {total} succeeded.");
+                else if (failed == 0)
+                    ToastService.Success($"{succeeded} script(s) completed successfully.");
+                else
+                    ToastService.Warning($"{succeeded} succeeded, {failed} failed. Check the progress log.");
 
                 await Task.Delay(5000);
 
@@ -428,6 +502,11 @@ namespace KabarakScriptRunnerApp
                 AppendProgress($"✔ Saved: {System.IO.Path.GetFileName(filePath)}");
 
                 await _scriptRepository.FinishScriptRunSuccessAsync(runId, table.Rows.Count, filePath);
+
+                await LogAuditAsync(_currentUser!.UserId, "ScriptRan", "Script",
+                    script.ScriptId.ToString(),
+                    $"Ran script '{script.Name}' (v{script.Version}). Rows={table.Rows.Count}. Output={System.IO.Path.GetFileName(filePath)}.");
+
                 return true;
             }
             catch (OperationCanceledException)
@@ -439,6 +518,11 @@ namespace KabarakScriptRunnerApp
                     try { await _scriptRepository.FinishScriptRunFailedAsync(runId, "Cancelled by user."); }
                     catch { }
                 }
+
+                await LogAuditAsync(_currentUser!.UserId, "ScriptRan", "Script",
+                    script.ScriptId.ToString(),
+                    $"Script '{script.Name}' was cancelled by the user.");
+
                 return false;
             }
             catch (Exception ex)
@@ -450,6 +534,10 @@ namespace KabarakScriptRunnerApp
                     try { await _scriptRepository.FinishScriptRunFailedAsync(runId, ex.Message); }
                     catch { }
                 }
+
+                await LogAuditAsync(_currentUser!.UserId, "ScriptRan", "Script",
+                    script.ScriptId.ToString(),
+                    $"Script '{script.Name}' failed: {ex.Message}");
 
                 MessageBox.Show($"Error running script '{script.Name}':\n\n{ex.Message}",
                     "Script Error", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -491,12 +579,18 @@ namespace KabarakScriptRunnerApp
 
             if (confirm != MessageBoxResult.Yes) return;
 
+            if (_currentUser != null)
+            {
+                _ = LogAuditAsync(_currentUser.UserId, "Logout", "User", _currentUser.UserId,
+                    $"User '{_currentUser.UserId}' ({_currentUser.DisplayName}) logged out.");
+            }
+
             LogoutRequested = true;
 
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 try { Close(); }
-                catch { /* window already closed */ }
+                catch { }
             }), System.Windows.Threading.DispatcherPriority.Background);
         }
     }

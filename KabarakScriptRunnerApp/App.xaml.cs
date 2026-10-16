@@ -10,6 +10,8 @@ using KabarakScriptRunnerApp.Startup;
 using KabarakScriptRunnerApp.Services; // Imported for ICurrentUserService orchestration
 using Serilog;
 
+
+
 namespace KabarakScriptRunnerApp
 {
     public partial class App : Application
@@ -67,6 +69,10 @@ namespace KabarakScriptRunnerApp
 
             // QuestPDF
             QuestPDF.Settings.License = LicenseType.Community;
+
+            // Toast notifications
+            KabarakScriptRunnerApp.Services.ToastService.Initialize();
+
 
             // --- Global handlers now log through Serilog ---
             DispatcherUnhandledException += (_, args) =>
@@ -148,6 +154,14 @@ namespace KabarakScriptRunnerApp
             // Infrastructure & Data Access Contexts
             services.AddSingleton<DatabaseContext>();
             services.AddTransient<ScriptRepository>();
+
+            services.AddTransient<DashboardRepository>();
+
+            services.AddTransient<BatchExportWindow>();
+
+            services.AddTransient<DashboardRepository>();
+            services.AddTransient<DashboardWindow>();
+
 
             // Global State Management
             services.AddSingleton<ICurrentUserService, CurrentUserService>();
