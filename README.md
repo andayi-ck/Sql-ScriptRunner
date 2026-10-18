@@ -1,14 +1,14 @@
-# Kabarak Script Runner
+# Script Runner
 
-A Windows desktop application for extracting data from Kabarak University's
-records and exporting it to Excel. Built on .NET 10 with a WPF frontend,
-SQL Server backend, and support for scheduled batch exports.
+A Windows desktop application for extracting data from SQL DATABASES
+records and exporting it to Excel or PDF. Built on .NET 10 with a WPF frontend,
+SQL Server backend, and support for scheduled sql query batch exports.
 
 ## What it does
 
 - Users log in with a username, password, and department.
 - Each user sees the reports (scripts) relevant to their department.
-- Running a script executes a read-only SQL query against the university
+- Running a script executes a read-only SQL query against the
   database and writes the result to an Excel file in a folder of the
   user's choice.
 - Admins can manage users, assign scripts to departments, reset passwords,
