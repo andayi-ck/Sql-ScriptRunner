@@ -14,10 +14,6 @@ SQL Server backend, and support for scheduled batch exports.
 - Admins can manage users, assign scripts to departments, reset passwords,
   view a full audit trail of every action, and export dashboards as PDF.
 
-## Screenshots
-
-*(Add screenshots here once deployed — a picture of the login window, main
-window, and dashboard is enough.)*
 
 ## Technology Stack
 
