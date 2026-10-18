@@ -28,6 +28,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove=".github\**" />
+    <EmbeddedResource Remove=".github\**" />
+    <None Remove=".github\**" />
+    <Page Remove=".github\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="Resources\app.ico" />
     <None Remove="Resources\icon-arrow.png" />
     <None Remove="Resources\icon-document.png" />
@@ -79,10 +86,6 @@
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include=".github\workflows\build.yml" />
   </ItemGroup>
 
 </Project>

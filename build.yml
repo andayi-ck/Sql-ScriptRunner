@@ -1,4 +1,4 @@
-﻿name: Build Kabarak Script Runner
+name: Build Kabarak Script Runner
 
 on:
   push:

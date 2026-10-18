@@ -8,9 +8,7 @@
 ;    3. Writes the correct appsettings.json for the SQL Server
 ;    4. Creates shortcuts and registers an uninstaller
 ;
-;  CURRENT CONFIG: localhost (for local testing on your own PC)
-;  WHEN MOVING TO A CENTRAL SERVER, change the three #define lines below.
-; ============================================================================
+;  CURRENT CONFIG: localhost (for local testing A===========================================================
 
 #define MyAppName "Kabarak Script Runner"
 #define MyAppVersion "2.0.0"

@@ -2,6 +2,11 @@
   <Folder Name="/Solution Items/">
     <File Path="CodeDependencies.iss" />
     <File Path="KabarakScriptRunner.iss" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/Solution Items/.github/" />
+  <Folder Name="/Solution Items/.github/workflows/">
+    <File Path="build.yml" />
   </Folder>
   <Project Path="KabarakScriptRunner.Core/KabarakScriptRunner.Core.csproj" Id="8f7a0d3e-0494-4307-9de4-8f0555059ebe" />
   <Project Path="KabarakScriptRunner.Data/KabarakScriptRunner.Data.csproj" Id="eb8a2cf4-f685-41e8-9ca1-be5ac00edc59" />
