@@ -12,6 +12,11 @@
 .idea/
 .vscode/
 
+## Installer output
+Installer/
+## Published build output
+publish/
+
 ## NuGet
 *.nupkg
 packages/
