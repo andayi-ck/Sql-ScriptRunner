@@ -24,11 +24,11 @@ jobs:
 
       # 3. Restore NuGet packages
       - name: Restore NuGet packages
-        run: dotnet restore KabarakScriptRunner.sln
+        run: dotnet restore KabarakScriptRunnerApp.sln
 
       # 4. Build the solution (Release)
       - name: Build solution (Release)
-        run: dotnet build KabarakScriptRunner.sln -c Release --no-restore
+        run: dotnet build KabarakScriptRunnerApp.sln -c Release --no-restore
 
       # 5. Run unit tests
       - name: Run unit tests
