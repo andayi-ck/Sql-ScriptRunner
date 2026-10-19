@@ -1,0 +1,79 @@
+﻿name: Build Kabarak Script Runner
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:      # allows manual trigger from GitHub UI
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      # 1. Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Setup .NET 10
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # 3. Restore NuGet packages
+      - name: Restore NuGet packages
+        run: dotnet restore KabarakScriptRunner.sln
+
+      # 4. Build the solution (Release)
+      - name: Build solution (Release)
+        run: dotnet build KabarakScriptRunner.sln -c Release --no-restore
+
+      # 5. Run unit tests
+      - name: Run unit tests
+        run: dotnet test tests/KabarakScriptRunner.Tests/KabarakScriptRunner.Tests.csproj -c Release --no-build --verbosity normal
+
+      # 6. Delete stale publish folder
+      - name: Clean previous publish output
+        run: |
+          if (Test-Path "KabarakScriptRunnerApp/bin/Release/net10.0-windows/win-x64/publish") {
+            Remove-Item -Recurse -Force "KabarakScriptRunnerApp/bin/Release/net10.0-windows/win-x64/publish"
+          }
+        shell: pwsh
+
+      # 7. Publish the app (framework-dependent folder)
+      - name: Publish the app
+        run: dotnet publish KabarakScriptRunnerApp/KabarakScriptRunnerApp.csproj -c Release --no-build
+
+      # 8. Upload the app publish folder (for debugging)
+      - name: Upload app publish folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: KabarakScriptRunnerApp-publish
+          path: KabarakScriptRunnerApp/bin/Release/net10.0-windows/win-x64/publish
+          retention-days: 30
+
+      # 9. Install Inno Setup
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+        shell: pwsh
+
+      # 10. Compile the Inno Setup installer
+      - name: Compile installer
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            $iscc = "C:\Program Files\Inno Setup 6\ISCC.exe"
+          }
+          Write-Host "Using ISCC at: $iscc"
+          & $iscc "KabarakScriptRunner.iss"
+        shell: pwsh
+
+      # 11. Upload the installer as an artifact
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: KabarakScriptRunnerSetup
+          path: Installer/KabarakScriptRunnerSetup.exe
+          retention-days: 30
