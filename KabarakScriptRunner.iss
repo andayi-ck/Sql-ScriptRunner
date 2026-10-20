@@ -64,32 +64,118 @@ SetupIconFile=KabarakScriptRunnerApp\Resources\app.ico
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
-[Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkedonce
+; Note: The [Tasks] section has been removed because we are handling 
+; the desktop shortcut with a custom checkbox on the configuration page.
 
 [Files]
 ; Copy the whole publish folder (contains the .exe + all DLLs)
 Source: "{#MyAppSource}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
+; Start Menu icons only. The Desktop icon is created dynamically in [Code].
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"
 Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [Code]
+var
+  ConfigPage: TWizardPage;
+  ChkDesktopIcon: TNewCheckBox;
+  ChkDotNet: TNewCheckBox;
+  IsDotNetMissing: Boolean;
+
 // ============================================================================
-//  DEPENDENCY CHECK: .NET Desktop Runtime 10
-//  Automatically downloads and installs if missing. Skips if already present.
+//  .NET DETECTION LOGIC
+//  Checks the registry for the .NET Desktop Runtime 10.x
 // ============================================================================
-function InitializeSetup(): Boolean;
+function IsDotNetDesktopRuntimeInstalled(): Boolean;
+var
+  Names: TArrayOfString;
+  I: Integer;
+  RegPath: String;
 begin
-  // Only proceed if the user has permission (installer requires admin).
-  // InnoDependencyInstaller handles the download + silent install of .NET.
-  Dependency_AddDotNet100Desktop;
+  Result := False;
+  // Standard registry path for .NET Desktop Runtime versions
+  RegPath := 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App';
+  
+  if RegGetValueNames(HKLM32, RegPath, Names) then
+  begin
+    for I := 0 to GetArrayLength(Names) - 1 do
+    begin
+      // Check if a version starting with "10." is installed
+      if Pos('10.', Names[I]) = 1 then
+      begin
+        Result := True;
+        Break;
+      end;
+    end;
+  end;
+end;
+
+// ============================================================================
+//  CUSTOM PAGE CREATION
+// ============================================================================
+procedure InitializeWizard();
+begin
+  // Create a custom page right before the "Ready to Install" page
+  ConfigPage := CreateCustomPage(wpSelectDir, 'Configuration', 'Choose additional options before installing.');
+  
+  // Check if .NET is missing
+  IsDotNetMissing := not IsDotNetDesktopRuntimeInstalled();
+
+  // 1. Desktop Shortcut Checkbox
+  ChkDesktopIcon := TNewCheckBox.Create(ConfigPage);
+  ChkDesktopIcon.Parent := ConfigPage.Surface;
+  ChkDesktopIcon.Left := 0;
+  ChkDesktopIcon.Top := 0;
+  ChkDesktopIcon.Width := ConfigPage.SurfaceWidth;
+  ChkDesktopIcon.Caption := 'Create a desktop shortcut';
+  ChkDesktopIcon.Checked := True; // Checked by default
+
+  // 2. .NET Runtime Checkbox
+  ChkDotNet := TNewCheckBox.Create(ConfigPage);
+  ChkDotNet.Parent := ConfigPage.Surface;
+  ChkDotNet.Left := 0;
+  ChkDotNet.Top := ChkDesktopIcon.Top + ChkDesktopIcon.Height + 10;
+  ChkDotNet.Width := ConfigPage.SurfaceWidth;
+
+  if IsDotNetMissing then
+  begin
+    ChkDotNet.Caption := '.NET Desktop Runtime 10 (Required - Not Detected)';
+    ChkDotNet.Checked := True; // Pre-check if missing
+    ChkDotNet.Enabled := True;
+    
+    // Register the dependency. It will download during the Install phase.
+    Dependency_AddDotNet100Desktop;
+  end
+  else
+  begin
+    ChkDotNet.Caption := '.NET Desktop Runtime 10 (Already Detected)';
+    ChkDotNet.Checked := False;
+    ChkDotNet.Enabled := False; // Disable if already installed
+  end;
+end;
+
+// ============================================================================
+//  PAGE VALIDATION
+//  Ensures the user doesn't skip the .NET install if it's required.
+// ============================================================================
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
   Result := True;
+  
+  if CurPageID = ConfigPage.ID then
+  begin
+    // If .NET is missing but the user unchecked the box, stop them.
+    if IsDotNetMissing and (not ChkDotNet.Checked) then
+    begin
+      MsgBox('The .NET Desktop Runtime is required to run this application. Please check the box to continue.', mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+  end;
 end;
 
 // ============================================================================
@@ -133,5 +219,11 @@ begin
   if CurStep = ssPostInstall then
   begin
     WriteAppSettings();
+    
+    // Create the desktop shortcut if the user checked the box
+    if ChkDesktopIcon.Checked then
+    begin
+      CreateShellLink(ExpandConstant('{autodesktop}\{#MyAppName}.lnk'), '', ExpandConstant('{app}\{#MyAppExeName}'), '', ExpandConstant('{app}'), '', 0, SW_SHOWNORMAL);
+    end;
   end;
 end;
