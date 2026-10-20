@@ -25,6 +25,15 @@
     <!-- =========================================================== -->
     <SelfContained>false</SelfContained>
     <PublishSingleFile>false</PublishSingleFile>
+
+    <!-- =========================================================== -->
+    <!--  SENTRY DEBUG SYMBOL UPLOADING (Optional but recommended)   -->
+    <!-- =========================================================== -->
+    <!-- These properties tell Sentry to upload .pdb files during    -->
+    <!-- a Release build so you get exact line numbers in errors.    -->
+    <SentryOrg>YOUR_SENTRY_ORG_SLUG</SentryOrg>
+    <SentryProject>YOUR_SENTRY_PROJECT_SLUG</SentryProject>
+    <SentryUploadSymbols>true</SentryUploadSymbols>
   </PropertyGroup>
 
   <ItemGroup>
@@ -48,6 +57,8 @@
     <PackageReference Include="LiveChartsCore.SkiaSharpView.WPF" Version="2.0.5" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
     <PackageReference Include="QuestPDF" Version="2026.9.1" />
+    <!-- Sentry SDK -->
+    <PackageReference Include="Sentry" Version="6.12.1" />
     <PackageReference Include="Serilog.Extensions.Logging" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
