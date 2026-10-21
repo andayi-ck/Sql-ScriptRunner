@@ -15,6 +15,13 @@ SQL Server backend, and support for scheduled sql query batch exports.
   view a full audit trail of every action, and export dashboards as PDF.
 
 
+## Screenshots
+
+![Main Window](C:\Users\User\source\repos\KabarakScriptRunnerApp\KabarakScriptRunnerApp\Resources\Main Window Page.png)
+*(Add more screenshots like the Login Window or Dashboard here)*
+
+
+
 ## Technology Stack
 
 | Layer | Technology |

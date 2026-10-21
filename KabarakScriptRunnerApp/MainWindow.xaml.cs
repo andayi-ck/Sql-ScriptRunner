@@ -26,6 +26,9 @@ namespace KabarakScriptRunnerApp
 
         private List<Script> _allLoadedScripts = new();
 
+        // NEW: Tracks the previous list to compare for changes
+        private List<Script> _previousScripts = new();
+
         public bool LogoutRequested { get; private set; }
 
         public MainWindow(ScriptRepository scriptRepository)
@@ -77,7 +80,8 @@ namespace KabarakScriptRunnerApp
                 if (!string.IsNullOrEmpty(outputFolder))
                     txtOutputFolder.Text = outputFolder;
 
-                await LoadScriptsAsync();
+                // Pass 'false' for initial load (no spinner, no comparison)
+                await LoadScriptsAsync(false);
 
                 AppendProgress($"Logged in as {_currentUser.DisplayName} ({_currentUser.UserId}) — {_currentDepartment?.DepartmentName}");
             }
@@ -91,16 +95,100 @@ namespace KabarakScriptRunnerApp
         // ============================================
         // SCRIPTS: load + search filter
         // ============================================
-        private async Task LoadScriptsAsync()
+        private async Task LoadScriptsAsync(bool isManualRefresh = false)
         {
             if (_currentUser == null) return;
 
-            var scripts = await _scriptRepository.GetScriptsAsync(
-                _currentDepartment?.DepartmentId,
-                _currentUser.IsAdmin);
+            try
+            {
+                // Show loading overlay if this is a manual refresh
+                if (isManualRefresh)
+                {
+                    LoadingOverlay.Visibility = Visibility.Visible;
+                    // Small delay so the user can actually see the spinner
+                    await Task.Delay(500);
+                }
 
-            _allLoadedScripts = scripts.ToList();
-            ApplyScriptFilter();
+                var newScripts = (await _scriptRepository.GetScriptsAsync(
+                    _currentDepartment?.DepartmentId,
+                    _currentUser.IsAdmin)).ToList();
+
+                // Compare and notify if it's a manual refresh
+                if (isManualRefresh && _previousScripts.Count > 0)
+                {
+                    CompareAndNotifyChanges(_previousScripts, newScripts);
+                }
+
+                _allLoadedScripts = newScripts;
+                _previousScripts = newScripts; // Save for next time
+                ApplyScriptFilter();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error refreshing scripts:\n\n{ex.Message}",
+                    "Refresh Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                // Hide loading overlay
+                if (isManualRefresh)
+                {
+                    LoadingOverlay.Visibility = Visibility.Collapsed;
+                }
+            }
+        }
+
+        // NEW: Compares old and new lists to find added, updated, and removed scripts
+        private void CompareAndNotifyChanges(List<Script> oldList, List<Script> newList)
+        {
+            int added = 0;
+            int updated = 0;
+            int removed = 0;
+
+            foreach (var newScript in newList)
+            {
+                var oldScript = oldList.FirstOrDefault(s => s.ScriptId == newScript.ScriptId);
+
+                if (oldScript == null)
+                {
+                    added++;
+                }
+                else if (oldScript.Name != newScript.Name ||
+                         oldScript.Description != newScript.Description ||
+                         oldScript.Version != newScript.Version ||
+                         oldScript.SqlText != newScript.SqlText ||
+                         oldScript.DepartmentId != newScript.DepartmentId)
+                {
+                    updated++;
+                }
+            }
+
+            foreach (var oldScript in oldList)
+            {
+                if (!newList.Any(s => s.ScriptId == oldScript.ScriptId))
+                {
+                    removed++;
+                }
+            }
+
+            // Display results in the status line and via Toast
+            if (added == 0 && updated == 0 && removed == 0)
+            {
+                lblProgressStatus.Text = "No changes detected. Scripts are up to date.";
+                ToastService.Information("No changes detected.");
+            }
+            else
+            {
+                var message = "Updates detected: ";
+                if (added > 0) message += $"{added} added, ";
+                if (updated > 0) message += $"{updated} updated, ";
+                if (removed > 0) message += $"{removed} removed, ";
+
+                message = message.TrimEnd(',', ' ') + ".";
+
+                lblProgressStatus.Text = message;
+                ToastService.Success(message);
+            }
         }
 
         private void ApplyScriptFilter()
@@ -316,9 +404,8 @@ namespace KabarakScriptRunnerApp
         // ============================================
         private async void btnRefresh_Click(object sender, RoutedEventArgs e)
         {
-            await LoadScriptsAsync();
-            AppendProgress("Script list refreshed.");
-            ToastService.Information("Script list refreshed.");
+            // Pass 'true' to indicate this is a manual refresh
+            await LoadScriptsAsync(true);
         }
 
         private void btnCancelRun_Click(object sender, RoutedEventArgs e)
