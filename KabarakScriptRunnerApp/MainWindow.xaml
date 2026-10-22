@@ -198,6 +198,7 @@
             <!-- Admin group -->
             <GroupBox Grid.Row="1" Header="Admin" Margin="0,0,0,10" Padding="8">
                 <WrapPanel>
+                    <Button x:Name="btnAskAi"       Content="✨ Ask AI"    Width="90"  Height="28" Margin="0,0,6,6" Click="btnAskAi_Click"/>
                     <Button x:Name="btnBatchExport" Content="Batch Export" Width="110" Height="28" Margin="0,0,6,6" Click="btnBatchExport_Click"/>
                     <Button x:Name="btnDashboard"   Content="Dashboard"    Width="90"  Height="28" Margin="0,0,6,6" Click="btnDashboard_Click"/>
                     <Button x:Name="btnScripts"     Content="Scripts"      Width="78"  Height="28" Margin="0,0,6,6" Click="btnScripts_Click"/>
