@@ -14,7 +14,7 @@
 #define MyAppVersion "2.0.0"
 #define MyAppPublisher "E.M Solutions"
 #define MyAppExeName "ScriptRunnerApp.exe"
-#define MyAppSource "ScriptRunnerApp\bin\Release\net10.0-windows\win-x64\publish"
+#define MyAppSource "KabarakScriptRunnerApp\bin\Release\net10.0-windows\win-x64\publish"
 
 ; ---------------------------------------------------------------------------
 ;  CONNECTION SETTINGS
