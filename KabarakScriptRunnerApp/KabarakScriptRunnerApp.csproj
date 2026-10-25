@@ -56,6 +56,7 @@
     <PackageReference Include="FluentValidation" Version="12.2.0" />
     <PackageReference Include="LiveChartsCore.SkiaSharpView.WPF" Version="2.0.5" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
+    <PackageReference Include="Notification.Wpf" Version="11.0.0" />
     <PackageReference Include="QuestPDF" Version="2026.9.1" />
     <!-- Sentry SDK -->
     <PackageReference Include="Sentry" Version="6.12.1" />

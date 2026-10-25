@@ -10,11 +10,11 @@
 ;
 ;  CURRENT CONFIG: localhost (for local testing A===========================================================
 
-#define MyAppName "Kabarak Script Runner"
+#define MyAppName "Script Runner"
 #define MyAppVersion "2.0.0"
-#define MyAppPublisher "Kabarak University"
-#define MyAppExeName "KabarakScriptRunnerApp.exe"
-#define MyAppSource "KabarakScriptRunnerApp\bin\Release\net10.0-windows\win-x64\publish"
+#define MyAppPublisher "E.M Solutions"
+#define MyAppExeName "ScriptRunnerApp.exe"
+#define MyAppSource "ScriptRunnerApp\bin\Release\net10.0-windows\win-x64\publish"
 
 ; ---------------------------------------------------------------------------
 ;  CONNECTION SETTINGS
@@ -51,7 +51,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=Installer
-OutputBaseFilename=KabarakScriptRunnerSetup
+OutputBaseFilename=ScriptRunnerSetup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

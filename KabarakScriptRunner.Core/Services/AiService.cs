@@ -39,7 +39,7 @@ Rules:
 User Question: {userQuestion}
 SQL:";
 
-            var responseText = await CallAiAsync(systemPrompt, token, stream: false);
+            var responseText = await CallAiAsync(systemPrompt, token);
             return responseText.Replace("```sql", "").Replace("```", "").Trim();
         }
 
@@ -66,16 +66,15 @@ Explain this data clearly and concisely. If it's a list, summarize the key findi
         }
 
         // HELPER: Handle the HTTP call for both providers
-        private async Task<string> CallAiAsync(string prompt, CancellationToken token, bool stream)
+        private async Task<string> CallAiAsync(string prompt, CancellationToken token)
         {
-            var request = BuildRequest(prompt);
+            var request = BuildRequest(prompt, stream: false);
             var response = await _httpClient.SendAsync(request, token);
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync(token);
             using var doc = JsonDocument.Parse(json);
 
-            // Extract text based on provider response structure
             return doc.RootElement
                 .GetProperty("choices")[0]
                 .GetProperty("message")
@@ -84,7 +83,9 @@ Explain this data clearly and concisely. If it's a list, summarize the key findi
         }
 
         // HELPER: Handle Streaming for both providers
-        private async IAsyncEnumerable<string> CallAiStreamingAsync(string prompt, CancellationToken token)
+        private async IAsyncEnumerable<string> CallAiStreamingAsync(
+            string prompt,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken token)
         {
             var request = BuildRequest(prompt, stream: true);
             using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
@@ -92,28 +93,39 @@ Explain this data clearly and concisely. If it's a list, summarize the key findi
 
             using var streamReader = new StreamReader(await response.Content.ReadAsStreamAsync(token));
 
-            while (!streamReader.EndOfStream)
+            // FIX: Use a while loop with ReadLineAsync instead of EndOfStream
+            string? line;
+            while ((line = await streamReader.ReadLineAsync()) != null)
             {
-                var line = await streamReader.ReadLineAsync();
                 if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data: ")) continue;
 
-                var data = line.Substring(6); // Remove "data: "
+                var data = line.Substring(6).Trim(); // Remove "data: "
                 if (data == "[DONE]") break;
 
+                // We cannot use try/catch around yield return.
+                // If parsing fails, we just skip that chunk.
+                JsonDocument? doc = null;
                 try
                 {
-                    using var doc = JsonDocument.Parse(data);
-                    var delta = doc.RootElement
-                        .GetProperty("choices")[0]
-                        .GetProperty("delta");
+                    doc = JsonDocument.Parse(data);
+                }
+                catch
+                {
+                    continue;
+                }
 
-                    if (delta.TryGetProperty("content", out var content))
+                using (doc)
+                {
+                    if (doc.RootElement.TryGetProperty("choices", out var choices) &&
+                        choices.GetArrayLength() > 0 &&
+                        choices[0].TryGetProperty("delta", out var delta) &&
+                        delta.TryGetProperty("content", out var content))
                     {
                         var text = content.GetString();
-                        if (!string.IsNullOrEmpty(text)) yield return text;
+                        if (!string.IsNullOrEmpty(text))
+                            yield return text;
                     }
                 }
-                catch { /* Ignore malformed chunks */ }
             }
         }
 
