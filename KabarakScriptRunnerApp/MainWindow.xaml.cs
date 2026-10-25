@@ -347,29 +347,7 @@ namespace KabarakScriptRunnerApp
             }
         }
 
-        private void btnAskAi_Click(object sender, RoutedEventArgs e)
-        {
-            if (_currentUser == null) return;
-
-            // Read the API Key and Provider from appsettings.json
-            var apiKey = App.Configuration["AiApiKey"];
-            var provider = App.Configuration["AiProvider"] ?? "Gemini";
-
-            if (string.IsNullOrEmpty(apiKey))
-            {
-                MessageBox.Show("AI API Key is missing from appsettings.json. Please add 'AiApiKey' to your configuration.",
-                    "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            // Instantiate the window, passing the repository, connection string, key, and provider
-            var aiWindow = new AiChatWindow(_scriptRepository, App.ConnectionString, apiKey, provider)
-            {
-                Owner = this
-            };
-
-            aiWindow.ShowDialog();
-        }
+        
 
         private void btnUsers_Click(object sender, RoutedEventArgs e)
         {

@@ -18,39 +18,8 @@
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Text" Value=" *"/>
         </Style>
-        <!-- NEW: AI Mode Button Style -->
-        <Style x:Key="AiModeButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#F0F4F9"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="12,6"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" 
-                                Background="{TemplateBinding Background}" 
-                                CornerRadius="20" 
-                                BorderBrush="Transparent" 
-                                BorderThickness="1">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <!-- Hover effect: subtle shadow and border highlight -->
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#FFFFFF"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="#D2E3FC"/>
-                                <Setter TargetName="border" Property="Effect">
-                                    <Setter.Value>
-                                        <DropShadowEffect Color="#1565C0" BlurRadius="10" ShadowDepth="0" Opacity="0.3"/>
-                                    </Setter.Value>
-                                </Setter>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </Window.Resources>
+
     <Grid Margin="8">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="180"/>
@@ -72,21 +41,11 @@
 
                 <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center">
                     <Image Source="pack://application:,,,/Resources/icon-papers.png"
-                           Width="64" Height="64"
-                           Stretch="Uniform"
-                           RenderOptions.BitmapScalingMode="HighQuality"
-                           HorizontalAlignment="Center"/>
+                           Width="64" Height="64" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center"/>
                     <Image Source="pack://application:,,,/Resources/icon-arrow.png"
-                           Width="40" Height="40"
-                           Margin="0,12"
-                           Stretch="Uniform"
-                           RenderOptions.BitmapScalingMode="HighQuality"
-                           HorizontalAlignment="Center"/>
+                           Width="40" Height="40" Margin="0,12" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center"/>
                     <Image Source="pack://application:,,,/Resources/icon-document.png"
-                           Width="64" Height="64"
-                           Stretch="Uniform"
-                           RenderOptions.BitmapScalingMode="HighQuality"
-                           HorizontalAlignment="Center"/>
+                           Width="64" Height="64" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center"/>
                 </StackPanel>
 
                 <StackPanel Grid.Row="2">
@@ -111,26 +70,7 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <Grid Grid.Row="0" Margin="8,6,8,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Grid.Column="0" Text="Available Scripts" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
-
-                    <!-- The New AI Mode Button -->
-                    <Button x:Name="btnAskAi" Grid.Column="1" 
-                                Style="{StaticResource AiModeButtonStyle}" 
-                                Click="btnAskAi_Click">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="✨" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="AI Mode" FontWeight="SemiBold" Foreground="#1F1F1F" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                </Grid>
-
-                <!-- Search box + count -->
+                <!-- Search Box -->
                 <Grid Grid.Row="1" Margin="8,0,8,6">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -142,14 +82,9 @@
                     <TextBlock x:Name="lblScriptCount" Grid.Column="1" Foreground="#666" FontStyle="Italic" VerticalAlignment="Center" Margin="10,0,0,0" Text=""/>
                 </Grid>
 
-                <!-- The ListBox with the Loading Overlay -->
+                <!-- ListBox with Loading Overlay -->
                 <Grid Grid.Row="2">
-                    <ListBox x:Name="lstScripts"
-                             BorderThickness="0"
-                             SelectionMode="Extended"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto"
-                             HorizontalContentAlignment="Stretch"
-                             SelectionChanged="lstScripts_SelectionChanged">
+                    <ListBox x:Name="lstScripts" BorderThickness="0" SelectionMode="Extended" ScrollViewer.VerticalScrollBarVisibility="Auto" HorizontalContentAlignment="Stretch" SelectionChanged="lstScripts_SelectionChanged">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Margin="4,2">
@@ -188,18 +123,10 @@
                         </ListBox.ItemContainerStyle>
                     </ListBox>
 
-                    <!-- NEW: Loading Overlay -->
-                    <Border x:Name="LoadingOverlay" 
-                            Background="#D0FFFFFF" 
-                            Visibility="Collapsed" 
-                            Panel.ZIndex="10">
+                    <Border x:Name="LoadingOverlay" Background="#D0FFFFFF" Visibility="Collapsed" Panel.ZIndex="10">
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                             <TextBlock Text="⏳" FontSize="40" HorizontalAlignment="Center" Margin="0,0,0,10"/>
-                            <TextBlock Text="Checking for updates..." 
-                                       FontWeight="SemiBold" 
-                                       Foreground="#1565C0" 
-                                       FontSize="14" 
-                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="Checking for updates..." FontWeight="SemiBold" Foreground="#1565C0" FontSize="14" HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -248,7 +175,6 @@
             <!-- Admin group -->
             <GroupBox Grid.Row="1" Header="Admin" Margin="0,0,0,10" Padding="8">
                 <WrapPanel>
-                    
                     <Button x:Name="btnBatchExport" Content="Batch Export" Width="110" Height="28" Margin="0,0,6,6" Click="btnBatchExport_Click"/>
                     <Button x:Name="btnDashboard"   Content="Dashboard"    Width="90"  Height="28" Margin="0,0,6,6" Click="btnDashboard_Click"/>
                     <Button x:Name="btnScripts"     Content="Scripts"      Width="78"  Height="28" Margin="0,0,6,6" Click="btnScripts_Click"/>
@@ -310,5 +236,8 @@
                 <Button x:Name="btnClose"      Content="Close"           Width="70"  Height="32" Margin="0,0,0,6" Click="btnClose_Click"/>
             </WrapPanel>
         </Grid>
+
+        <!-- Toast Notification Area -->
+        <notification:NotificationArea x:Name="ToastTopRight" Position="TopRight" MaxItems="4" Width="350" Margin="0,20,20,0"/>
     </Grid>
 </Window>
