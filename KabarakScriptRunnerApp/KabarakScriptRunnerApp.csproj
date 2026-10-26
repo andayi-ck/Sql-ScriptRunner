@@ -11,7 +11,7 @@
     <Version>2.0.0</Version>
     <FileVersion>1.0.0.0</FileVersion>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <Product>Kabarak Script Runner</Product>
+    <Product>Script Runner</Product>
     <Company>Kabarak University</Company>
     <Copyright>Copyright © Kabarak University 2026</Copyright>
     <Description>Desktop application for extracting Kabarak University data to Excel</Description>
