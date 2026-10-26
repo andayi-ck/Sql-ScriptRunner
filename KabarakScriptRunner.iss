@@ -11,7 +11,7 @@
 ;  CURRENT CONFIG: localhost (for local testing A===========================================================
 
 #define MyAppName "Script Runner"
-#define MyAppVersion "2.0.0"
+#define MyAppVersion "3.0.0"
 #define MyAppPublisher "E.M Solutions"
 #define MyAppExeName "ScriptRunnerApp.exe"
 #define MyAppSource "KabarakScriptRunnerApp\bin\Release\net10.0-windows\win-x64\publish"
