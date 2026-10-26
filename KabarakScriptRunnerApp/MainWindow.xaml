@@ -70,6 +70,11 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
+                <!-- Header (Restored Text) -->
+                <Grid Grid.Row="0" Margin="8,6,8,4">
+                    <TextBlock Text="Available Scripts" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+                </Grid>
+
                 <!-- Search Box -->
                 <Grid Grid.Row="1" Margin="8,0,8,6">
                     <Grid.ColumnDefinitions>
@@ -227,8 +232,8 @@
                 </Grid>
             </GroupBox>
 
-            <!-- Bottom buttons -->
-            <WrapPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
+            <!-- Bottom buttons (Aligned Left to match Admin group) -->
+            <WrapPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,4,0,0">
                 <Button x:Name="btnRefresh"    Content="Refresh scripts" Width="110" Height="32" Margin="0,0,6,6" Click="btnRefresh_Click"/>
                 <Button x:Name="btnCancelRun"  Content="Cancel Run"      Width="100" Height="32" Margin="0,0,6,6" Click="btnCancelRun_Click" IsEnabled="False"/>
                 <Button x:Name="btnRun"        Content="Run"             Width="70"  Height="32" Margin="0,0,6,6" Click="btnRun_Click"/>
