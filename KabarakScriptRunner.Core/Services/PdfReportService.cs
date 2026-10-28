@@ -48,7 +48,7 @@ namespace KabarakScriptRunner.Core.Services
                 {
                     page.Size(PageSizes.A4.Landscape());
                     page.Margin(24);
-                    page.DefaultTextStyle(t => t.FontSize(9).FontFamily("Arial"));
+                    page.DefaultTextStyle(t => t.FontSize(9).FontFamily("Lato"));
 
                     page.Header().Element(header => ComposeHeader(header, reportTitle, subtitle, generatedBy));
 
