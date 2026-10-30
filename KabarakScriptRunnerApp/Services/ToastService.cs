@@ -1,37 +1,65 @@
-﻿using Notification.Core;
-using Notification.Wpf; // Ensure this is the correct namespace for your version
-using System;
+﻿using System;
+using System.Linq;
+using System.Windows;
+using KabarakScriptRunnerApp.Controls;
 
 namespace KabarakScriptRunnerApp.Services
 {
     public static class ToastService
     {
-        private static readonly NotificationManager _manager = new();
-
         public static void Initialize()
         {
             // Kept for compatibility with App.xaml.cs
         }
 
-        public static void Success(string message)
-        {
-            // Using the simple overload: Title, Message, Type
-            _manager.Show("Success", message, NotificationType.Success);
-        }
+        public static void Success(string message) =>
+            Show("Success", message, ToastKind.Success);
 
-        public static void Error(string message)
-        {
-            _manager.Show("Error", message, NotificationType.Error);
-        }
+        public static void Success(string title, string message) =>
+            Show(title, message, ToastKind.Success);
 
-        public static void Warning(string message)
-        {
-            _manager.Show("Warning", message, NotificationType.Warning);
-        }
+        public static void Error(string message) =>
+            Show("Error", message, ToastKind.Error);
 
-        public static void Information(string message)
+        public static void Error(string title, string message) =>
+            Show(title, message, ToastKind.Error);
+
+        public static void Warning(string message) =>
+            Show("Warning", message, ToastKind.Warning);
+
+        public static void Warning(string title, string message) =>
+            Show(title, message, ToastKind.Warning);
+
+        public static void Information(string message) =>
+            Show("Information", message, ToastKind.Information);
+
+        public static void Information(string title, string message) =>
+            Show(title, message, ToastKind.Information);
+
+        private static void Show(string title, string message, ToastKind kind)
         {
-            _manager.Show("Info", message, NotificationType.Information);
+            var app = Application.Current;
+            if (app == null) return;
+
+            void Open()
+            {
+                var owner = app.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive && w.IsVisible)
+                            ?? app.Windows.OfType<Window>().LastOrDefault(w => w.IsVisible);
+
+                var duration = kind == ToastKind.Error
+                    ? TimeSpan.FromSeconds(6)
+                    : TimeSpan.FromSeconds(4);
+
+                var toast = new AppToastWindow(title, message, kind, duration);
+                if (owner != null)
+                    toast.Owner = owner;
+                toast.Show();
+            }
+
+            if (app.Dispatcher.CheckAccess())
+                Open();
+            else
+                app.Dispatcher.Invoke(Open);
         }
     }
 }

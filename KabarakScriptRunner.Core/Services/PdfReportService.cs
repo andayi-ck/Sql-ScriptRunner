@@ -97,7 +97,7 @@ namespace KabarakScriptRunner.Core.Services
                 {
                     page.Size(PageSizes.A4.Portrait());
                     page.Margin(30);
-                    page.DefaultTextStyle(t => t.FontSize(10).FontFamily("Arial"));
+                    page.DefaultTextStyle(t => t.FontSize(10).FontFamily("Lato"));
 
                     page.Header().Element(h =>
                         ComposeHeader(h, "Kabarak Script Runner — Dashboard Summary",

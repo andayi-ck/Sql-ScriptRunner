@@ -3,11 +3,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
         Title="Dashboard"
-        Height="640" Width="1080"
+        Height="680" Width="1120"
         WindowStartupLocation="CenterOwner"
-        Background="#F5F5F5">
+        Background="{StaticResource Brush.Page}"
+        FontFamily="Segoe UI"
+        Foreground="{StaticResource Brush.Text}">
 
-    <Grid Margin="14">
+    <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -15,67 +17,88 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- HEADER -->
-        <Grid Grid.Row="0" Margin="0,0,0,12">
+        <Grid Grid.Row="0" Margin="0,0,0,14">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0">
-                <TextBlock Text="Dashboard" FontSize="22" FontWeight="Bold" Foreground="#1565C0"/>
-                <TextBlock x:Name="lblSubtitle" Foreground="#666" Margin="0,4,0,0"/>
+            <StackPanel>
+                <TextBlock Text="Dashboard" FontSize="22" FontWeight="Bold" Foreground="{StaticResource Brush.Primary}"/>
+                <TextBlock x:Name="lblSubtitle" Style="{StaticResource MutedText}" Margin="0,4,0,0"/>
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button x:Name="btnRefresh" Content="Refresh" Width="100" Height="32" Margin="0,0,8,0"
+                <Button x:Name="btnRefresh" Content="Refresh" Width="100" Height="34" Margin="0,0,8,0"
                         Click="btnRefresh_Click"/>
-                <Button x:Name="btnExportPdf" Content="Export to PDF" Width="130" Height="32" Margin="0,0,8,0"
+                <Button x:Name="btnExportPdf" Content="Export to PDF" Width="130" Height="34" Margin="0,0,8,0"
                         Click="btnExportPdf_Click"/>
-                <Button x:Name="btnClose" Content="Close" Width="90" Height="32"
+                <Button x:Name="btnClose" Content="Close" Style="{StaticResource GhostButton}" Width="90" Height="34"
                         Click="btnClose_Click"/>
             </StackPanel>
         </Grid>
 
-        <!-- KPI CARDS -->
         <UniformGrid Grid.Row="1" Rows="1" Columns="5" Margin="0,0,0,12">
-            <Border Background="White" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4" Padding="14,10" Margin="4">
-                <StackPanel>
-                    <TextBlock Text="Active Students" Foreground="#666" FontSize="11"/>
-                    <TextBlock x:Name="lblActiveStudents" Text="-" FontSize="26" FontWeight="Bold" Foreground="#1565C0"/>
-                </StackPanel>
+            <Border Style="{StaticResource CardBorder}" Padding="14,10" Margin="4">
+                <Grid>
+                    <Border Width="4" HorizontalAlignment="Left" Background="{StaticResource Brush.Primary}"
+                            CornerRadius="2" Margin="-14, -4, 0, -4"/>
+                    <StackPanel Margin="8,0,0,0">
+                        <TextBlock Text="Active Students" Style="{StaticResource MutedText}"/>
+                        <TextBlock x:Name="lblActiveStudents" Text="-" FontSize="26" FontWeight="Bold"
+                                   Foreground="{StaticResource Brush.Primary}"/>
+                    </StackPanel>
+                </Grid>
             </Border>
 
-            <Border Background="White" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4" Padding="14,10" Margin="4">
-                <StackPanel>
-                    <TextBlock Text="Active Staff" Foreground="#666" FontSize="11"/>
-                    <TextBlock x:Name="lblActiveStaff" Text="-" FontSize="26" FontWeight="Bold" Foreground="#1565C0"/>
-                </StackPanel>
+            <Border Style="{StaticResource CardBorder}" Padding="14,10" Margin="4">
+                <Grid>
+                    <Border Width="4" HorizontalAlignment="Left" Background="{StaticResource Brush.Primary}"
+                            CornerRadius="2" Margin="-14, -4, 0, -4"/>
+                    <StackPanel Margin="8,0,0,0">
+                        <TextBlock Text="Active Staff" Style="{StaticResource MutedText}"/>
+                        <TextBlock x:Name="lblActiveStaff" Text="-" FontSize="26" FontWeight="Bold"
+                                   Foreground="{StaticResource Brush.Primary}"/>
+                    </StackPanel>
+                </Grid>
             </Border>
 
-            <Border Background="White" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4" Padding="14,10" Margin="4">
-                <StackPanel>
-                    <TextBlock Text="Active Scripts" Foreground="#666" FontSize="11"/>
-                    <TextBlock x:Name="lblActiveScripts" Text="-" FontSize="26" FontWeight="Bold" Foreground="#1565C0"/>
-                </StackPanel>
+            <Border Style="{StaticResource CardBorder}" Padding="14,10" Margin="4">
+                <Grid>
+                    <Border Width="4" HorizontalAlignment="Left" Background="{StaticResource Brush.Primary}"
+                            CornerRadius="2" Margin="-14, -4, 0, -4"/>
+                    <StackPanel Margin="8,0,0,0">
+                        <TextBlock Text="Active Scripts" Style="{StaticResource MutedText}"/>
+                        <TextBlock x:Name="lblActiveScripts" Text="-" FontSize="26" FontWeight="Bold"
+                                   Foreground="{StaticResource Brush.Primary}"/>
+                    </StackPanel>
+                </Grid>
             </Border>
 
-            <Border Background="White" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4" Padding="14,10" Margin="4">
-                <StackPanel>
-                    <TextBlock Text="Fees (Last 30 Days)" Foreground="#666" FontSize="11"/>
-                    <TextBlock x:Name="lblFees30" Text="-" FontSize="22" FontWeight="Bold" Foreground="#2E7D32"/>
-                </StackPanel>
+            <Border Style="{StaticResource CardBorder}" Padding="14,10" Margin="4">
+                <Grid>
+                    <Border Width="4" HorizontalAlignment="Left" Background="{StaticResource Brush.Success}"
+                            CornerRadius="2" Margin="-14, -4, 0, -4"/>
+                    <StackPanel Margin="8,0,0,0">
+                        <TextBlock Text="Fees (Last 30 Days)" Style="{StaticResource MutedText}"/>
+                        <TextBlock x:Name="lblFees30" Text="-" FontSize="22" FontWeight="Bold"
+                                   Foreground="{StaticResource Brush.Success}"/>
+                    </StackPanel>
+                </Grid>
             </Border>
 
-            <Border Background="White" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4" Padding="14,10" Margin="4">
-                <StackPanel>
-                    <TextBlock Text="Runs (Last 7 Days)" Foreground="#666" FontSize="11"/>
-                    <TextBlock x:Name="lblRuns7" Text="-" FontSize="26" FontWeight="Bold" Foreground="#6A1B9A"/>
-                </StackPanel>
+            <Border Style="{StaticResource CardBorder}" Padding="14,10" Margin="4">
+                <Grid>
+                    <Border Width="4" HorizontalAlignment="Left" Background="#6A1B9A"
+                            CornerRadius="2" Margin="-14, -4, 0, -4"/>
+                    <StackPanel Margin="8,0,0,0">
+                        <TextBlock Text="Runs (Last 7 Days)" Style="{StaticResource MutedText}"/>
+                        <TextBlock x:Name="lblRuns7" Text="-" FontSize="26" FontWeight="Bold" Foreground="#6A1B9A"/>
+                    </StackPanel>
+                </Grid>
             </Border>
         </UniformGrid>
 
-        <!-- CHARTS -->
         <Grid Grid.Row="2">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
@@ -86,55 +109,52 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Fees Collected -->
-            <Border Grid.Row="0" Grid.Column="0" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4" Margin="4" Padding="10">
+            <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource CardBorder}" Margin="4" Padding="12">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Fees Collected — Last 12 Months" FontWeight="Bold" FontSize="13" Margin="0,0,0,8"/>
+                    <TextBlock Text="Fees Collected — Last 12 Months" Style="{StaticResource SectionTitle}" Margin="0,0,0,8"/>
                     <lvc:CartesianChart Grid.Row="1" x:Name="chartFees"/>
                 </Grid>
             </Border>
 
-            <!-- Enrolment Trend -->
-            <Border Grid.Row="0" Grid.Column="1" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4" Margin="4" Padding="10">
+            <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource CardBorder}" Margin="4" Padding="12">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Students Admitted Per Year" FontWeight="Bold" FontSize="13" Margin="0,0,0,8"/>
+                    <TextBlock Text="Students Admitted Per Year" Style="{StaticResource SectionTitle}" Margin="0,0,0,8"/>
                     <lvc:CartesianChart Grid.Row="1" x:Name="chartEnrolment"/>
                 </Grid>
             </Border>
 
-            <!-- Top Courses -->
-            <Border Grid.Row="1" Grid.Column="0" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4" Margin="4" Padding="10">
+            <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource CardBorder}" Margin="4" Padding="12">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Top 10 Courses by Enrolment" FontWeight="Bold" FontSize="13" Margin="0,0,0,8"/>
+                    <TextBlock Text="Top 10 Courses by Enrolment" Style="{StaticResource SectionTitle}" Margin="0,0,0,8"/>
                     <lvc:CartesianChart Grid.Row="1" x:Name="chartCourses"/>
                 </Grid>
             </Border>
 
-            <!-- Recent Activity -->
-            <Border Grid.Row="1" Grid.Column="1" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4" Margin="4" Padding="10">
+            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource CardBorder}" Margin="4" Padding="12">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Recent Activity" FontWeight="Bold" FontSize="13" Margin="0,0,0,8"/>
+                    <TextBlock Text="Recent Activity" Style="{StaticResource SectionTitle}" Margin="0,0,0,8"/>
                     <DataGrid Grid.Row="1" x:Name="dgActivity"
                               AutoGenerateColumns="False" IsReadOnly="True"
                               CanUserAddRows="False" HeadersVisibility="Column"
-                              GridLinesVisibility="Horizontal" RowHeight="22"
-                              Background="White" BorderThickness="0">
+                              GridLinesVisibility="Horizontal" RowHeight="26"
+                              Background="White" BorderThickness="0"
+                              RowBackground="White" AlternatingRowBackground="#F8FAFC">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Time"   Binding="{Binding Timestamp, StringFormat='MM-dd HH:mm'}" Width="90"/>
                             <DataGridTextColumn Header="User"   Binding="{Binding UserId}"     Width="90"/>
@@ -146,7 +166,6 @@
             </Border>
         </Grid>
 
-        <!-- FOOTER -->
-        <TextBlock Grid.Row="3" x:Name="lblStatus" Foreground="#555" Margin="4,10,0,0"/>
+        <TextBlock Grid.Row="3" x:Name="lblStatus" Style="{StaticResource MutedText}" Margin="4,10,0,0"/>
     </Grid>
 </Window>

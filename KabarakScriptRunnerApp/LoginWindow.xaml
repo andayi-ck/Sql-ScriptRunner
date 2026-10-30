@@ -2,68 +2,66 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Kabarak Script Runner — Login"
-        Height="330" Width="440"
+        Height="460" Width="440"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
-        Background="#F0F0F0">
-    <Grid Margin="20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="110"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
+        Background="{StaticResource Brush.Page}"
+        FontFamily="Segoe UI"
+        Foreground="{StaticResource Brush.Text}">
+    <Grid>
+        <Border Style="{StaticResource CardBorder}" Width="380" VerticalAlignment="Center"
+                HorizontalAlignment="Center" ClipToBounds="True">
+            <StackPanel>
+                <Border Background="{StaticResource Brush.Primary}" CornerRadius="8,8,0,0" Padding="20,16"
+                        Margin="-1,-1,-1,0">
+                    <StackPanel Orientation="Horizontal">
+                        <Image Source="pack://application:,,,/Resources/app.ico" Width="32" Height="32" Margin="0,0,10,0"/>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Script Runner" Foreground="White" FontWeight="SemiBold" FontSize="15"/>
+                            <TextBlock Text="Sign in to continue" Foreground="#BBDEFB" FontSize="11"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
 
-        <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
-                   Text="Kabarak Script Runner"
-                   FontSize="18" FontWeight="Bold"
-                   HorizontalAlignment="Center"
-                   Margin="0,0,0,16"/>
+                <Grid Margin="22,20,22,22">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="110"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-        <TextBlock Grid.Row="1" Grid.Column="0"
-                   Text="Username" VerticalAlignment="Center"/>
-        <TextBox x:Name="txtUsername"
-                 Grid.Row="1" Grid.Column="1"
-                 Height="26" Margin="0,0,0,10"/>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Username"/>
+                    <TextBox x:Name="txtUsername" Grid.Row="0" Grid.Column="1" Margin="0,0,0,12"/>
 
-        <TextBlock Grid.Row="2" Grid.Column="0"
-                   Text="Password" VerticalAlignment="Center"/>
-        <PasswordBox x:Name="txtPassword"
-                     Grid.Row="2" Grid.Column="1"
-                     Height="26" Margin="0,0,0,10"/>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Password"/>
+                    <PasswordBox x:Name="txtPassword" Grid.Row="1" Grid.Column="1" Margin="0,0,0,12"/>
 
-        <TextBlock Grid.Row="3" Grid.Column="0"
-                   Text="Department" VerticalAlignment="Center"/>
-        <ComboBox x:Name="cmbDepartment"
-                  Grid.Row="3" Grid.Column="1"
-                  Height="26" Margin="0,0,0,10"
-                  DisplayMemberPath="DepartmentName"
-                  SelectedValuePath="DepartmentId"/>
+                    <TextBlock Grid.Row="2" Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Department"/>
+                    <ComboBox x:Name="cmbDepartment" Grid.Row="2" Grid.Column="1" Margin="0,0,0,12"
+                              DisplayMemberPath="DepartmentName"
+                              SelectedValuePath="DepartmentId"/>
 
-        <TextBlock x:Name="lblError"
-                   Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
-                   Foreground="Red"
-                   TextWrapping="Wrap"
-                   Margin="0,0,0,10"
-                   Text=""/>
+                    <TextBlock x:Name="lblError" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                               Foreground="{StaticResource Brush.Danger}"
+                               TextWrapping="Wrap" Margin="0,0,0,16" MinHeight="20" Text=""/>
 
-        <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2"
-                    Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="btnLogin" Content="Login"
-                    Width="90" Height="30" Margin="0,0,8,0"
-                    IsDefault="True"
-                    Click="btnLogin_Click"/>
-            <Button x:Name="btnCancel" Content="Cancel"
-                    Width="90" Height="30"
-                    IsCancel="True"
-                    Click="btnCancel_Click"/>
-        </StackPanel>
+                    <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                                Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button x:Name="btnCancel" Content="Cancel" Style="{StaticResource GhostButton}"
+                                Width="96" Height="34" Margin="0,0,8,0"
+                                IsCancel="True" Click="btnCancel_Click"/>
+                        <Button x:Name="btnLogin" Content="Login" Style="{StaticResource PrimaryButton}"
+                                Width="110" Height="34"
+                                IsDefault="True" Click="btnLogin_Click"/>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>
