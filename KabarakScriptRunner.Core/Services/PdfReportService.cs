@@ -280,12 +280,41 @@ namespace KabarakScriptRunner.Core.Services
         {
             container.Table(t =>
             {
+                // Set custom column widths based on column names to prevent text wrapping
                 t.ColumnsDefinition(cols =>
                 {
-                    for (int i = 0; i < table.Columns.Count; i++)
-                        cols.RelativeColumn();
+                    foreach (DataColumn column in table.Columns)
+                    {
+                        switch (column.ColumnName.ToLower())
+                        {
+                            case "runid":
+                                cols.ConstantColumn(50);
+                                break;
+                            case "rowsaffected":
+                                cols.ConstantColumn(70); // Wider so the header doesn't wrap
+                                break;
+                            case "startedat":
+                            case "finishedat":
+                                cols.ConstantColumn(110);
+                                break;
+                            case "userid":
+                                cols.ConstantColumn(70);
+                                break;
+                            case "status":
+                                cols.ConstantColumn(60);
+                                break;
+                            case "outputpath":
+                            case "errormessage":
+                                cols.RelativeColumn(2); // More space for long text
+                                break;
+                            default:
+                                cols.RelativeColumn(); // Standard relative width for others
+                                break;
+                        }
+                    }
                 });
 
+                // Header row
                 t.Header(header =>
                 {
                     foreach (DataColumn column in table.Columns)
@@ -294,36 +323,52 @@ namespace KabarakScriptRunner.Core.Services
                             .Background(HeaderBg)
                             .BorderBottom(1).BorderColor(PrimaryColor)
                             .Padding(5)
+                            .AlignMiddle() // Center the header text vertically
                             .Text(column.ColumnName)
                             .Bold()
                             .FontColor(PrimaryColor);
                     }
                 });
 
+                // Body rows
                 int rowIndex = 0;
                 foreach (DataRow row in table.Rows)
                 {
                     rowIndex++;
                     Color bg = rowIndex % 2 == 0 ? RowAltBg : WhiteBg;
 
-                    foreach (var value in row.ItemArray)
+                    for (int i = 0; i < table.Columns.Count; i++)
                     {
+                        var column = table.Columns[i];
+                        var value = row[i];
                         var text = FormatCellValue(value);
                         var numeric = value is decimal or double or float or int or long or short;
 
                         var cell = t.Cell()
                             .Background(bg)
                             .BorderBottom(0.5f).BorderColor(BorderColor)
-                            .Padding(4);
+                            .Padding(4)
+                            .AlignMiddle(); // Center text vertically
 
-                        if (numeric)
-                            cell.AlignRight().Text(text);
+                        // Center specific columns like RunId and RowsAffected
+                        if (column.ColumnName.Equals("RunId", StringComparison.OrdinalIgnoreCase) ||
+                            column.ColumnName.Equals("RowsAffected", StringComparison.OrdinalIgnoreCase))
+                        {
+                            cell.AlignCenter().Text(text);
+                        }
+                        else if (numeric)
+                        {
+                            cell.AlignRight().Text(text); // Keep amounts/payments right-aligned
+                        }
                         else
+                        {
                             cell.Text(text);
+                        }
                     }
                 }
             });
         }
+
 
         private static void ComposeKpiCard(IContainer container, string label, string value)
         {

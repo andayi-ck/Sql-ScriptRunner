@@ -23,6 +23,9 @@ namespace KabarakScriptRunnerApp
             {
                 lblStatus.Text = "Loading dashboard data...";
 
+                // Show the toast notification
+                KabarakScriptRunnerApp.Services.ToastService.Information("Please wait", "Querying information from the database...");
+
                 await _vm.LoadAsync();
 
                 // KPIs

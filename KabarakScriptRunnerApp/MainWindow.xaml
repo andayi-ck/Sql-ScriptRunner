@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Kabarak Script Runner"
         Language="en-US"
-        Height="600" Width="1000"
-        MinHeight="520" MinWidth="850"
+        Height="702" Width="1202"
+        MinHeight="640" MinWidth="1040"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource Brush.Page}"
         FontFamily="Segoe UI"
@@ -81,81 +81,98 @@
         <!-- BODY -->
         <Grid Grid.Row="2" Margin="14">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="240"/>
+                <ColumnDefinition Width="220"/>
                 <!-- Increased Left Panel -->
                 <ColumnDefinition Width="*"/>
                 <!-- Reduced Middle Panel -->
-                <ColumnDefinition Width="400"/>
+                <ColumnDefinition Width="420"/>
                 <!-- Right Panel -->
             </Grid.ColumnDefinitions>
 
             <!-- LEFT: Categories & Branding Graphic -->
+            <!-- LEFT: Categories & Branding Graphic -->
             <Border Grid.Column="0" Style="{StaticResource CardBorder}" Margin="0,0,10,0" Padding="12">
                 <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <!-- Title -->
-                        <RowDefinition Height="*"/>
-                        <!-- Categories List -->
-                        <RowDefinition Height="Auto"/>
-                        <!-- The Restored Graphic -->
-                    </Grid.RowDefinitions>
+                    <!-- The faded underlay image -->
+                    <Image Source="pack://application:,,,/Resources/icon-papers.png" 
+                           Opacity="0.08" 
+                           Stretch="Uniform" 
+                           Width="150" Height="150"
+                           HorizontalAlignment="Center" 
+                           VerticalAlignment="Center" 
+                           IsHitTestVisible="False"/>
 
-                    <TextBlock Grid.Row="0" Text="Categories" Style="{StaticResource SectionTitle}" Margin="4,2,4,10"/>
+                    <Image Source="pack://application:,,,/Resources/icon-arrow.png" 
+                           Opacity="0.08" 
+                           Stretch="Uniform" 
+                           Width="60" Height="60"
+                           HorizontalAlignment="Center" 
+                           VerticalAlignment="Center" 
+                           Margin="0,120,0,0"
+                           IsHitTestVisible="False"/>
 
-                    <ListBox x:Name="lstCategories" Grid.Row="1" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionChanged="lstCategories_SelectionChanged">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="2,6">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding Count}" Foreground="{StaticResource Brush.TextMuted}" FontSize="11"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                <Setter Property="Padding" Value="8,2"/>
-                                <Setter Property="Margin" Value="0,1"/>
-                                <Setter Property="Cursor" Value="Hand"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListBoxItem">
-                                            <Border x:Name="Bd" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                                                <Grid>
-                                                    <Border x:Name="Accent" Width="3" HorizontalAlignment="Left" Background="Transparent" CornerRadius="2" Margin="-8,2,0,2"/>
-                                                    <ContentPresenter Margin="6,0,0,0"/>
-                                                </Grid>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.Hover}"/>
-                                                </Trigger>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.PrimaryLight}"/>
-                                                    <Setter TargetName="Accent" Property="Background" Value="{StaticResource Brush.Primary}"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                    </ListBox>
+                    <Image Source="pack://application:,,,/Resources/icon-document.png" 
+                           Opacity="0.08" 
+                           Stretch="Uniform" 
+                           Width="150" Height="150"
+                           HorizontalAlignment="Center" 
+                           VerticalAlignment="Center" 
+                           Margin="0,240,0,0"
+                           IsHitTestVisible="False"/>
 
-                    <!-- RESTORED: The Graphic/Logo -->
-                    <StackPanel Grid.Row="2" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,20,0,10">
-                        <Image Source="pack://application:,,,/Resources/icon-papers.png"
-                               Width="64" Height="64" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center"/>
-                        <Image Source="pack://application:,,,/Resources/icon-arrow.png"
-                               Width="40" Height="40" Margin="0,12" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center"/>
-                        <Image Source="pack://application:,,,/Resources/icon-document.png"
-                               Width="64" Height="64" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center"/>
-                    </StackPanel>
+                    <!-- The foreground Categories List -->
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="Categories" Style="{StaticResource SectionTitle}" Margin="4,2,4,10"/>
+
+                        <ListBox x:Name="lstCategories" Grid.Row="1" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionChanged="lstCategories_SelectionChanged">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="2,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Count}" Foreground="{StaticResource Brush.TextMuted}" FontSize="11"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                    <Setter Property="Padding" Value="8,2"/>
+                                    <Setter Property="Margin" Value="0,1"/>
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <Border x:Name="Bd" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                    <Grid>
+                                                        <Border x:Name="Accent" Width="3" HorizontalAlignment="Left" Background="Transparent" CornerRadius="2" Margin="-8,2,0,2"/>
+                                                        <ContentPresenter Margin="6,0,0,0"/>
+                                                    </Grid>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.Hover}"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.PrimaryLight}"/>
+                                                        <Setter TargetName="Accent" Property="Background" Value="{StaticResource Brush.Primary}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+                    </Grid>
                 </Grid>
             </Border>
 
