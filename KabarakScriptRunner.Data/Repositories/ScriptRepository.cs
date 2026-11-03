@@ -89,7 +89,7 @@ namespace KabarakScriptRunner.Data.Repositories
                 using var connection = _context.CreateConnection();
                 const string sql = @"
                     SELECT s.ScriptId, s.Version, s.Name, s.Description, s.SqlText, s.Category,
-                           s.NeedsDateFrom, s.NeedsDateTo, s.IsActive,
+                           s.NeedsDateFrom, s.NeedsDateTo, s.IsActive, s.TargetDatabase,
                            s.DepartmentId, d.DepartmentName
                     FROM app.Scripts s
                     LEFT JOIN app.Departments d ON s.DepartmentId = d.DepartmentId
@@ -107,7 +107,7 @@ namespace KabarakScriptRunner.Data.Repositories
                 using var connection = _context.CreateConnection();
                 const string sql = @"
                     SELECT s.ScriptId, s.Version, s.Name, s.Description, s.SqlText, s.Category,
-                           s.NeedsDateFrom, s.NeedsDateTo, s.IsActive,
+                           s.NeedsDateFrom, s.NeedsDateTo, s.IsActive, s.TargetDatabase,
                            s.DepartmentId, d.DepartmentName
                     FROM app.Scripts s
                     LEFT JOIN app.Departments d ON s.DepartmentId = d.DepartmentId
@@ -131,9 +131,6 @@ namespace KabarakScriptRunner.Data.Repositories
         // SCRIPT VERSIONING
         // ============================================
 
-        /// <summary>
-        /// Returns the archived history of a script, newest first.
-        /// </summary>
         public async Task<IEnumerable<ScriptVersion>> GetScriptVersionsAsync(int scriptId)
         {
             return await RunWithRetryAsync(async () =>
@@ -151,9 +148,6 @@ namespace KabarakScriptRunner.Data.Repositories
             });
         }
 
-        /// <summary>
-        /// Returns a specific archived version of a script.
-        /// </summary>
         public async Task<ScriptVersion?> GetScriptVersionAsync(int scriptId, int version)
         {
             return await RunWithRetryAsync(async () =>
@@ -171,10 +165,6 @@ namespace KabarakScriptRunner.Data.Repositories
             });
         }
 
-        /// <summary>
-        /// Restores a script to a previous version.
-        /// The trigger archives the current version automatically.
-        /// </summary>
         public async Task RestoreScriptVersionAsync(int scriptId, int versionToRestore)
         {
             await RunWithRetryAsync(async () =>
@@ -232,11 +222,7 @@ namespace KabarakScriptRunner.Data.Repositories
         // RUN LOGGING
         // ============================================
 
-        public async Task<long> StartScriptRunAsync(
-            string userId,
-            int scriptId,
-            DateTime? dateFrom,
-            DateTime? dateTo)
+        public async Task<long> StartScriptRunAsync(string userId, int scriptId, DateTime? dateFrom, DateTime? dateTo)
         {
             return await RunWithRetryAsync(async () =>
             {
@@ -258,10 +244,7 @@ namespace KabarakScriptRunner.Data.Repositories
             });
         }
 
-        public async Task FinishScriptRunSuccessAsync(
-            long runId,
-            int rowsAffected,
-            string outputPath)
+        public async Task FinishScriptRunSuccessAsync(long runId, int rowsAffected, string outputPath)
         {
             await RunWithRetryAsync(async () =>
             {
@@ -309,12 +292,7 @@ namespace KabarakScriptRunner.Data.Repositories
         // USER MANAGEMENT
         // ============================================
 
-        public async Task CreateUserAsync(
-            string userId,
-            string displayName,
-            string passwordHash,
-            bool isAdmin,
-            int? departmentId)
+        public async Task CreateUserAsync(string userId, string displayName, string passwordHash, bool isAdmin, int? departmentId)
         {
             await RunWithRetryAsync(async () =>
             {
@@ -334,11 +312,7 @@ namespace KabarakScriptRunner.Data.Repositories
             });
         }
 
-        public async Task UpdateUserAsync(
-            string userId,
-            string displayName,
-            bool isAdmin,
-            int? departmentId)
+        public async Task UpdateUserAsync(string userId, string displayName, bool isAdmin, int? departmentId)
         {
             await RunWithRetryAsync(async () =>
             {
@@ -374,11 +348,7 @@ namespace KabarakScriptRunner.Data.Repositories
         // ACCESS LOG QUERIES
         // ============================================
 
-        public async Task<DataTable> GetScriptRunsAsync(
-            DateTime? dateFrom,
-            DateTime? dateTo,
-            string? userId,
-            string? status)
+        public async Task<DataTable> GetScriptRunsAsync(DateTime? dateFrom, DateTime? dateTo, string? userId, string? status)
         {
             return await RunWithRetryAsync(async () =>
             {
@@ -435,12 +405,7 @@ namespace KabarakScriptRunner.Data.Repositories
             });
         }
 
-        public async Task LogAdminActionAsync(
-            string userId,
-            string actionType,
-            string? targetType,
-            string? targetId,
-            string? details)
+        public async Task LogAdminActionAsync(string userId, string actionType, string? targetType, string? targetId, string? details)
         {
             await RunWithRetryAsync(async () =>
             {
@@ -484,13 +449,70 @@ namespace KabarakScriptRunner.Data.Repositories
         }
 
         // ============================================
-        // RESILIENCE HELPERS
+        // SCRIPT COMPILER / EDITOR
         // ============================================
 
         /// <summary>
-        /// Runs a SQL operation with an exponential-backoff retry policy
-        /// for transient errors. Retries up to 3 times (1s, 2s, 4s delays).
+        /// Validates the syntax of a SQL query against the connected SQL Server database.
         /// </summary>
+        public async Task<(bool IsValid, string ErrorMessage)> ValidateSqlSyntaxAsync(string sqlText)
+        {
+            return await RunWithRetryAsync(async () =>
+            {
+                using var connection = _context.CreateConnection();
+                // SET PARSEONLY ON tells SQL Server to check syntax without executing
+                try
+                {
+                    await connection.ExecuteAsync("SET PARSEONLY ON; " + sqlText + " SET PARSEONLY OFF;");
+                    return (true, string.Empty);
+                }
+                catch (SqlException ex)
+                {
+                    return (false, ex.Message);
+                }
+            });
+        }
+
+        /// <summary>
+        /// Inserts a new script into the database.
+        /// </summary>
+        public async Task CreateScriptAsync(
+            string name,
+            string description,
+            string sqlText,
+            string category,
+            string targetDatabase,
+            bool needsDateFrom,
+            bool needsDateTo,
+            int? departmentId)
+        {
+            await RunWithRetryAsync(async () =>
+            {
+                using var connection = _context.CreateConnection();
+                const string sql = @"
+                    INSERT INTO app.Scripts 
+                        (Name, Description, SqlText, Category, TargetDatabase, NeedsDateFrom, NeedsDateTo, IsActive, DepartmentId, Version)
+                    VALUES 
+                        (@Name, @Description, @SqlText, @Category, @TargetDatabase, @NeedsDateFrom, @NeedsDateTo, 1, @DepartmentId, 1);";
+
+                await connection.ExecuteAsync(sql, new
+                {
+                    Name = name,
+                    Description = description,
+                    SqlText = sqlText,
+                    Category = category,
+                    TargetDatabase = targetDatabase,
+                    NeedsDateFrom = needsDateFrom,
+                    NeedsDateTo = needsDateTo,
+                    DepartmentId = departmentId
+                });
+            });
+        }
+
+        // ============================================
+        // RESILIENCE HELPERS
+        // ============================================
+
         private async Task<T> RunWithRetryAsync<T>(Func<Task<T>> operation)
         {
             var policy = Policy
@@ -503,9 +525,8 @@ namespace KabarakScriptRunner.Data.Repositories
             return await policy.ExecuteAsync(operation);
         }
 
-        /// <summary>
-        /// Void variant of <see cref="RunWithRetryAsync{T}"/>.
-        /// </summary>
+
+
         private async Task RunWithRetryAsync(Func<Task> operation)
         {
             var policy = Policy
@@ -518,9 +539,6 @@ namespace KabarakScriptRunner.Data.Repositories
             await policy.ExecuteAsync(operation);
         }
 
-        /// <summary>
-        /// Common SQL Server error numbers that represent transient failures.
-        /// </summary>
         private static bool IsTransient(SqlException ex)
         {
             int[] transientErrors = { -2, 20, 64, 233, 10053, 10054, 10060, 1205, 4060, 10928, 10929, 40197, 40501, 40613, 49918, 49919, 49920 };

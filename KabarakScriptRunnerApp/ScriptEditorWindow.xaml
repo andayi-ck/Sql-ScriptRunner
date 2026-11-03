@@ -1,0 +1,124 @@
+﻿<Window x:Class="KabarakScriptRunnerApp.ScriptEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Script Editor" Height="700" Width="1000"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Page}"
+        FontFamily="Segoe UI"
+        Foreground="{StaticResource Brush.Text}">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Create New Script" FontSize="20" FontWeight="Bold" Foreground="{StaticResource Brush.Primary}"/>
+            <TextBlock Text="Paste a query, test its syntax, and save it to the database." Style="{StaticResource MutedText}" Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <!-- Main Content -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="320"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: SQL Editor -->
+            <Border Grid.Column="0" Style="{StaticResource CardBorder}" Padding="16" Margin="0,0,12,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="SQL Query" Style="{StaticResource SectionTitle}" Margin="0,0,0,8"/>
+                    <TextBox x:Name="txtSqlText" Grid.Row="1" 
+                             AcceptsReturn="True" TextWrapping="Wrap" 
+                             VerticalScrollBarVisibility="Auto"
+                             FontFamily="Consolas" FontSize="13"
+                             Padding="8"/>
+                </Grid>
+            </Border>
+
+            <!-- Right: Metadata & Actions -->
+            <Border Grid.Column="1" Style="{StaticResource CardBorder}" Padding="16">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Text="Script Details" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
+
+                    <!-- Name -->
+                    <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Name"/>
+                    <TextBox x:Name="txtName" Grid.Row="1" Grid.Column="1" Margin="0,0,0,8"/>
+
+                    <!-- Description -->
+                    <TextBlock Grid.Row="2" Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Description"/>
+                    <TextBox x:Name="txtDescription" Grid.Row="2" Grid.Column="1" Margin="0,0,0,8"/>
+
+                    <!-- Category -->
+                    <TextBlock Grid.Row="3" Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Category"/>
+                    <TextBox x:Name="txtCategory" Grid.Row="3" Grid.Column="1" Margin="0,0,0,8"/>
+
+                    <!-- Target Database -->
+                    <TextBlock Grid.Row="4" Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Target DB"/>
+                    <ComboBox x:Name="cmbTargetDatabase" Grid.Row="4" Grid.Column="1" Margin="0,0,0,8">
+                        <ComboBoxItem Content="SQLServer" IsSelected="True"/>
+                        <ComboBoxItem Content="PostgreSQL"/>
+                        <ComboBoxItem Content="MySQL"/>
+                        <ComboBoxItem Content="Oracle"/>
+                    </ComboBox>
+
+                    <!-- Department -->
+                    <TextBlock Grid.Row="5" Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Department"/>
+                    <ComboBox x:Name="cmbDepartment" Grid.Row="5" Grid.Column="1" Margin="0,0,0,8"
+                              DisplayMemberPath="DepartmentName" SelectedValuePath="DepartmentId"/>
+
+                    <!-- Date Parameters -->
+                    <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,8,0,8">
+                        <CheckBox x:Name="chkNeedsDateFrom" Content="Needs @DateFrom" IsChecked="True" Margin="0,0,16,0"/>
+                        <CheckBox x:Name="chkNeedsDateTo" Content="Needs @DateTo" IsChecked="True"/>
+                    </StackPanel>
+
+                    <!-- Validation Status -->
+                    <TextBlock x:Name="lblValidationStatus" Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2" 
+                               TextWrapping="Wrap" Margin="0,8,0,8" FontWeight="SemiBold"/>
+
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Footer Buttons -->
+        <Grid Grid.Row="2" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0" x:Name="btnTestSyntax" Content="Test Syntax" Width="120" Height="36" Click="btnTestSyntax_Click"/>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <Button x:Name="btnSave" Content="Save to Database" Width="150" Height="36" 
+                        Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" Click="btnSave_Click" IsEnabled="False"/>
+                <Button x:Name="btnCancel" Content="Cancel" Width="90" Height="36" Click="btnCancel_Click"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

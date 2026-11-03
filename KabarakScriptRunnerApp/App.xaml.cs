@@ -9,7 +9,7 @@ using QuestPDF.Infrastructure;
 using KabarakScriptRunnerApp.Startup;
 using KabarakScriptRunnerApp.Services;
 using Serilog;
-using Sentry; // <-- ADDED THIS
+using Sentry;
 
 namespace KabarakScriptRunnerApp
 {
@@ -22,20 +22,30 @@ namespace KabarakScriptRunnerApp
             Configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found in appsettings.json.");
 
+        // NEW: Detects the current database type from the connection string
+        public static string CurrentDatabaseType
+        {
+            get
+            {
+                var cs = ConnectionString.ToLowerInvariant();
+                if (cs.Contains("provider=postgresql") || cs.Contains("host=")) return "PostgreSQL";
+                if (cs.Contains("provider=mysql") || cs.Contains("server=mysql")) return "MySQL";
+                if (cs.Contains("oracle")) return "Oracle";
+                return "SQLServer";
+            }
+        }
+
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
 
-            // --- 1. Initialize Sentry FIRST (before anything else) ---
             SentrySdk.Init(options =>
             {
                 options.Dsn = "https://bd56e5a195b8278925ccee373025da6c@o4511828680704000.ingest.de.sentry.io/4512289773387856";
-                // Set to true only during initial testing to see SDK activity in the console
                 options.Debug = false;
-                options.IsGlobalModeEnabled = true; // Ensures we catch AppDomain/Task exceptions too
+                options.IsGlobalModeEnabled = true;
             });
 
-            // --- 2. Serilog bootstrap ---
             var logFolder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "KabarakScriptRunner", "logs");
@@ -56,7 +66,6 @@ namespace KabarakScriptRunnerApp
 
             Log.Information("Application starting up");
 
-            // --- 3. Configuration ---
             try
             {
                 Configuration = StartupValidator.LoadAndValidate();
@@ -64,7 +73,7 @@ namespace KabarakScriptRunnerApp
             catch (Exception ex)
             {
                 Log.Fatal(ex, "Configuration validation failed");
-                SentrySdk.CaptureException(ex); // Send config errors to Sentry too
+                SentrySdk.CaptureException(ex);
                 MessageBox.Show(
                     $"The application could not start:\n\n{ex.Message}",
                     "Configuration Error",
@@ -73,20 +82,13 @@ namespace KabarakScriptRunnerApp
                 return;
             }
 
-            // QuestPDF
             QuestPDF.Settings.License = LicenseType.Community;
-
-            // Toast notifications
             KabarakScriptRunnerApp.Services.ToastService.Initialize();
 
-            // --- 4. Global Exception Handlers (Both Serilog & Sentry) ---
-
-            // UI Thread Crashes
             DispatcherUnhandledException += (_, args) =>
             {
                 Log.Error(args.Exception, "UI thread exception");
-                SentrySdk.CaptureException(args.Exception); // Send to Sentry
-
+                SentrySdk.CaptureException(args.Exception);
                 MessageBox.Show(
                     $"An unexpected error occurred:\n\n{args.Exception.Message}\n\n" +
                     "The error has been logged. If it persists, contact your administrator.",
@@ -95,25 +97,22 @@ namespace KabarakScriptRunnerApp
                 args.Handled = true;
             };
 
-            // Background Thread Crashes
             AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             {
                 if (args.ExceptionObject is Exception ex)
                 {
                     Log.Fatal(ex, "AppDomain unhandled exception");
-                    SentrySdk.CaptureException(ex); // Send to Sentry
+                    SentrySdk.CaptureException(ex);
                 }
             };
 
-            // Unobserved Task Crashes
             TaskScheduler.UnobservedTaskException += (_, args) =>
             {
                 Log.Error(args.Exception, "Unobserved task exception");
-                SentrySdk.CaptureException(args.Exception); // Send to Sentry
+                SentrySdk.CaptureException(args.Exception);
                 args.SetObserved();
             };
 
-            // --- 5. Continue with DI ---
             var services = new ServiceCollection();
             services.AddSingleton<IConfiguration>(Configuration);
             ConfigureServices(services);
@@ -127,15 +126,10 @@ namespace KabarakScriptRunnerApp
         protected override void OnExit(ExitEventArgs e)
         {
             Log.Information("Application shutting down");
-
-            // Ensure Sentry flushes any pending errors before the app closes
             SentrySdk.Close();
-
             Log.CloseAndFlush();
             base.OnExit(e);
         }
-
-        // ... (keep your ShowLoginLoop and ConfigureServices methods exactly as they are) ...
 
         private void ShowLoginLoop()
         {

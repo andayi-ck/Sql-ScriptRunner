@@ -27,7 +27,6 @@ namespace KabarakScriptRunnerApp
         private List<Script> _allLoadedScripts = new();
         private List<Script> _previousScripts = new();
 
-        // NEW: Helper class for the Categories ListBox
         private sealed class CategoryItem
         {
             public string Name { get; init; } = "All";
@@ -120,7 +119,6 @@ namespace KabarakScriptRunnerApp
                 _allLoadedScripts = newScripts;
                 _previousScripts = newScripts;
 
-                // Rebuild the Categories list and apply the filter
                 RefreshCategoryList();
                 ApplyScriptFilter();
             }
@@ -138,7 +136,6 @@ namespace KabarakScriptRunnerApp
             }
         }
 
-        // NEW: Refreshes the ListBox of Categories
         private void RefreshCategoryList()
         {
             var selectedName = (lstCategories.SelectedItem as CategoryItem)?.Name ?? "All";
@@ -155,7 +152,6 @@ namespace KabarakScriptRunnerApp
             };
             items.AddRange(groups);
 
-            // Temporarily detach event to avoid infinite loops during refresh
             lstCategories.SelectionChanged -= lstCategories_SelectionChanged;
             lstCategories.ItemsSource = items;
             lstCategories.SelectedItem = items.FirstOrDefault(i => i.Name == selectedName) ?? items[0];
@@ -172,7 +168,6 @@ namespace KabarakScriptRunnerApp
             var query = txtScriptSearch.Text.Trim().ToLowerInvariant();
             IEnumerable<Script> filtered = _allLoadedScripts;
 
-            // 1. Filter by Category
             var category = (lstCategories.SelectedItem as CategoryItem)?.Name;
             if (!string.IsNullOrWhiteSpace(category) && category != "All")
             {
@@ -183,7 +178,6 @@ namespace KabarakScriptRunnerApp
                 });
             }
 
-            // 2. Filter by Search Query
             if (!string.IsNullOrWhiteSpace(query))
             {
                 filtered = filtered.Where(s =>
@@ -246,9 +240,6 @@ namespace KabarakScriptRunnerApp
             }
         }
 
-        // ============================================
-        // AUDIT, PROGRESS LOG, SELECTION, FOLDER BROWSE
-        // ============================================
         private async Task LogAuditAsync(string userId, string actionType, string? targetType, string? targetId, string? details)
         {
             try { await _scriptRepository.LogAdminActionAsync(userId, actionType, targetType, targetId, details); }
@@ -311,9 +302,6 @@ namespace KabarakScriptRunnerApp
             if (dialog.ShowDialog() == true) txtOutputFolder.Text = dialog.FolderName;
         }
 
-        // ============================================
-        // ADMIN BUTTONS
-        // ============================================
         private async void btnScripts_Click(object sender, RoutedEventArgs e)
         {
             var allScripts = lstScripts.ItemsSource as System.Collections.IEnumerable;
@@ -408,6 +396,21 @@ namespace KabarakScriptRunnerApp
             }
 
             var selectedScripts = lstScripts.SelectedItems.Cast<Script>().ToList();
+
+            // NEW: Check for dialect mismatch before proceeding
+            var mismatchedScripts = selectedScripts.Where(s =>
+                !string.Equals(s.TargetDatabase, App.CurrentDatabaseType, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            if (mismatchedScripts.Any())
+            {
+                var names = string.Join("\n", mismatchedScripts.Select(s => $"• {s.Name} (Written for {s.TargetDatabase})"));
+                MessageBox.Show(
+                    $"The following scripts are not written for the current database ({App.CurrentDatabaseType}):\n\n" +
+                    names + "\n\nPlease select only scripts written for {App.CurrentDatabaseType}.",
+                    "Database Mismatch", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             var outputFolder = txtOutputFolder.Text.Trim();
             var dateFrom = dtpFrom.SelectedDate;
             var dateTo = dtpTo.SelectedDate;
@@ -556,6 +559,18 @@ namespace KabarakScriptRunnerApp
             if (_currentUser == null || !_currentUser.IsAdmin) return;
             var window = new ChangePasswordWindow(_scriptRepository, _currentUser.UserId) { Owner = this };
             window.ShowDialog();
+        }
+
+        private void btnScriptEditor_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentUser == null || !_currentUser.IsAdmin) return;
+
+            var editor = new ScriptEditorWindow(_scriptRepository) { Owner = this };
+            if (editor.ShowDialog() == true)
+            {
+                // Refresh the script list if a new script was saved
+                _ = LoadScriptsAsync(true);
+            }
         }
 
         private void btnClose_Click(object sender, RoutedEventArgs e)

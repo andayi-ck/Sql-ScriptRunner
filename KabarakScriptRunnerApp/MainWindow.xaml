@@ -73,6 +73,7 @@
                     <Button x:Name="btnUsers"       Content="Users"        Style="{StaticResource ToolbarButton}" Click="btnUsers_Click"/>
                     <Button x:Name="btnAssign"      Content="Assign scripts" Style="{StaticResource ToolbarButton}" Click="btnAssign_Click"/>
                     <Button x:Name="btnOptions"     Content="Options"      Style="{StaticResource ToolbarButton}" Click="btnOptions_Click"/>
+                    <Button x:Name="btnScriptEditor" Content="New Script"  Style="{StaticResource ToolbarButton}" Click="btnScriptEditor_Click"/>
                     <Button x:Name="btnAccessLog"   Content="Access Log"   Style="{StaticResource ToolbarButton}" Click="btnAccessLog_Click"/>
                 </StackPanel>
             </DockPanel>
@@ -82,45 +83,25 @@
         <Grid Grid.Row="2" Margin="14">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="220"/>
-                <!-- Increased Left Panel -->
                 <ColumnDefinition Width="*"/>
-                <!-- Reduced Middle Panel -->
                 <ColumnDefinition Width="420"/>
-                <!-- Right Panel -->
             </Grid.ColumnDefinitions>
 
             <!-- LEFT: Categories & Branding Graphic -->
-            <!-- LEFT: Categories & Branding Graphic -->
             <Border Grid.Column="0" Style="{StaticResource CardBorder}" Margin="0,0,10,0" Padding="12">
                 <Grid>
-                    <!-- The faded underlay image -->
-                    <Image Source="pack://application:,,,/Resources/icon-papers.png" 
-                           Opacity="0.08" 
-                           Stretch="Uniform" 
-                           Width="150" Height="150"
-                           HorizontalAlignment="Center" 
-                           VerticalAlignment="Center" 
-                           IsHitTestVisible="False"/>
+                    <!-- The Grouped Underlay Images -->
+                    <StackPanel HorizontalAlignment="Center" 
+                                VerticalAlignment="Center" 
+                                Opacity="0.25" 
+                                IsHitTestVisible="False"
+                                Margin="0,40,0,0">
+                        <Image Source="pack://application:,,,/Resources/icon-papers.png" Width="90" Height="90" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                        <Image Source="pack://application:,,,/Resources/icon-arrow.png" Width="50" Height="50" Margin="0,15" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                        <Image Source="pack://application:,,,/Resources/icon-document.png" Width="90" Height="90" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    </StackPanel>
 
-                    <Image Source="pack://application:,,,/Resources/icon-arrow.png" 
-                           Opacity="0.08" 
-                           Stretch="Uniform" 
-                           Width="60" Height="60"
-                           HorizontalAlignment="Center" 
-                           VerticalAlignment="Center" 
-                           Margin="0,120,0,0"
-                           IsHitTestVisible="False"/>
-
-                    <Image Source="pack://application:,,,/Resources/icon-document.png" 
-                           Opacity="0.08" 
-                           Stretch="Uniform" 
-                           Width="150" Height="150"
-                           HorizontalAlignment="Center" 
-                           VerticalAlignment="Center" 
-                           Margin="0,240,0,0"
-                           IsHitTestVisible="False"/>
-
-                    <!-- The foreground Categories List -->
+                    <!-- The Foreground Categories List -->
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -147,7 +128,7 @@
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                                     <Setter Property="Padding" Value="8,2"/>
                                     <Setter Property="Margin" Value="0,1"/>
-                                    <Setter Property="Cursor" Value="Hand"/>
+                                   <Setter Property="Cursor" Value="Hand"/>
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="ListBoxItem">
@@ -201,12 +182,11 @@
                                 <DataTemplate>
                                     <StackPanel Margin="8,6">
                                         <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"/>
+                                        <!-- REMOVED the version from the display text -->
                                         <TextBlock Foreground="{StaticResource Brush.TextMuted}" FontSize="11" Margin="0,2,0,0">
                                             <Run Text="{Binding Category, Mode=OneWay}"/>
                                             <Run Text="  ·  "/>
                                             <Run Text="{Binding DepartmentName, Mode=OneWay}"/>
-                                            <Run Text="   v"/>
-                                            <Run Text="{Binding Version, Mode=OneWay}"/>
                                         </TextBlock>
                                     </StackPanel>
                                 </DataTemplate>
@@ -222,12 +202,11 @@
                                                 <StackPanel>
                                                     <TextBlock Text="{Binding Name}" FontWeight="Bold" Margin="0,0,0,4"/>
                                                     <TextBlock Text="{Binding Description}" TextWrapping="Wrap"/>
+                                                    <!-- REMOVED the version from the tooltip -->
                                                     <TextBlock Foreground="#777" FontStyle="Italic" Margin="0,6,0,0">
                                                         <Run Text="{Binding Category, Mode=OneWay}"/>
                                                         <Run Text=" · Department: "/>
                                                         <Run Text="{Binding DepartmentName, Mode=OneWay}"/>
-                                                        <Run Text=" · v"/>
-                                                        <Run Text="{Binding Version, Mode=OneWay}"/>
                                                     </TextBlock>
                                                 </StackPanel>
                                             </ToolTip>

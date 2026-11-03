@@ -27,10 +27,21 @@ namespace KabarakScriptRunnerApp
             try
             {
                 var users = (await _scriptRepository.GetAllUsersAsync()).ToList();
-                var placeholder = new KabarakScriptRunner.Data.Models.User { UserId = "", DisplayName = "(All Users)" };
-                var list = new System.Collections.Generic.List<KabarakScriptRunner.Data.Models.User> { placeholder };
-                list.AddRange(users);
-                cmbUser.ItemsSource = list;
+
+                // Create a clean list for the dropdown
+                var userList = new System.Collections.Generic.List<object>
+        {
+            new { UserId = "", DisplayName = "(All Users)" } // Placeholder
+        };
+
+                foreach (var u in users)
+                {
+                    userList.Add(new { UserId = u.UserId, DisplayName = $"{u.DisplayName} ({u.UserId})" });
+                }
+
+                cmbUser.ItemsSource = userList;
+                cmbUser.SelectedValuePath = "UserId"; // Tell it to use the UserId property for the value
+                cmbUser.DisplayMemberPath = "DisplayName"; // Tell it to use the DisplayName property for the text
                 cmbUser.SelectedIndex = 0;
 
                 dtpFrom.SelectedDate = DateTime.Today.AddDays(-30);
@@ -43,6 +54,8 @@ namespace KabarakScriptRunnerApp
                 MessageBox.Show($"Failed to initialize:\n\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
+
 
         private async Task LoadActiveTabAsync()
         {
@@ -58,7 +71,18 @@ namespace KabarakScriptRunnerApp
         {
             try
             {
-                var userId = (cmbUser.SelectedItem as KabarakScriptRunner.Data.Models.User)?.UserId;
+                // Extract the UserId from the selected anonymous object
+                string? userId = null;
+                var selectedItem = cmbUser.SelectedItem;
+                if (selectedItem != null)
+                {
+                    var prop = selectedItem.GetType().GetProperty("UserId");
+                    if (prop != null)
+                    {
+                        userId = prop.GetValue(selectedItem, null) as string;
+                    }
+                }
+
                 var status = (cmbStatus.SelectedItem as ComboBoxItem)?.Content?.ToString();
                 if (status == "(All)") status = null;
 

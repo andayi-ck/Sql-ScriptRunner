@@ -5,24 +5,10 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
+                <!-- Colors MUST be first -->
                 <ResourceDictionary Source="Themes/Colors.xaml"/>
                 <ResourceDictionary Source="Themes/Styles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
-
-            <!-- NEW: Sharpen text globally -->
-            <Style TargetType="{x:Type TextBlock}">
-                <Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
-                <Setter Property="TextOptions.TextRenderingMode" Value="ClearType"/>
-            </Style>
-            <Style TargetType="{x:Type TextBox}">
-                <Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
-                <Setter Property="TextOptions.TextRenderingMode" Value="ClearType"/>
-            </Style>
-            <Style TargetType="{x:Type ComboBox}">
-                <Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
-                <Setter Property="TextOptions.TextRenderingMode" Value="ClearType"/>
-            </Style>
-
         </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -4,7 +4,9 @@
         Title="Batch Export"
         Height="720" Width="1000"
         WindowStartupLocation="CenterOwner"
-        Background="#F0F0F0">
+        Background="{StaticResource Brush.Page}"
+        FontFamily="Segoe UI"
+        Foreground="{StaticResource Brush.Text}">
     <Grid Margin="14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -16,9 +18,9 @@
 
         <!-- Header -->
         <StackPanel Grid.Row="0" Margin="0,0,0,10">
-            <TextBlock Text="Batch Export" FontSize="20" FontWeight="Bold" Foreground="#1565C0"/>
+            <TextBlock Text="Batch Export" FontSize="20" FontWeight="Bold" Foreground="{StaticResource Brush.Primary}"/>
             <TextBlock Text="Select multiple scripts, choose a date range, and export all results to Excel at once."
-                       Foreground="#666" Margin="0,4,0,0"/>
+                       Foreground="{StaticResource Brush.TextMuted}" Margin="0,4,0,0"/>
         </StackPanel>
 
         <!-- Filter row -->
@@ -36,32 +38,22 @@
                 </Grid.ColumnDefinitions>
 
                 <TextBlock Grid.Column="0" Text="Filter:" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                <TextBox x:Name="txtFilter" Grid.Column="1" Height="26" Margin="0,0,12,0"
-                         TextChanged="txtFilter_TextChanged"/>
+                <TextBox x:Name="txtFilter" Grid.Column="1" Margin="0,0,12,0" TextChanged="txtFilter_TextChanged"/>
 
                 <TextBlock Grid.Column="2" Text="From:" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                <DatePicker x:Name="dtpFrom" Grid.Column="3" Width="140" Height="26" Margin="0,0,12,0"
-                            SelectedDateFormat="Short"/>
+                <DatePicker x:Name="dtpFrom" Grid.Column="3" Width="140" Margin="0,0,12,0" SelectedDateFormat="Short"/>
 
                 <TextBlock Grid.Column="4" Text="To:" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                <DatePicker x:Name="dtpTo" Grid.Column="5" Width="140" Height="26" Margin="0,0,12,0"
-                            SelectedDateFormat="Short"/>
+                <DatePicker x:Name="dtpTo" Grid.Column="5" Width="140" Margin="0,0,12,0" SelectedDateFormat="Short"/>
 
-                <Button x:Name="btnSelectAll" Grid.Column="6" Content="Select All"
-                        Width="90" Height="26" Click="btnSelectAll_Click"/>
+                <!-- Removed Height -->
+                <Button x:Name="btnSelectAll" Grid.Column="6" Content="Select All" Width="90" Click="btnSelectAll_Click"/>
             </Grid>
         </Border>
 
         <!-- Script list with checkboxes -->
         <Border Grid.Row="2" Background="White" BorderBrush="#A0A0A0" BorderThickness="1">
-            <DataGrid x:Name="dgScripts"
-                      AutoGenerateColumns="False"
-                      CanUserAddRows="False"
-                      HeadersVisibility="Column"
-                      GridLinesVisibility="Horizontal"
-                      RowHeight="26"
-                      Background="White"
-                      BorderThickness="0">
+            <DataGrid x:Name="dgScripts" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal" RowHeight="26" Background="White" BorderThickness="0">
                 <DataGrid.Columns>
                     <DataGridCheckBoxColumn Header="Select" Binding="{Binding IsSelected, Mode=TwoWay}" Width="60"/>
                     <DataGridTextColumn Header="Script Name" Binding="{Binding Name}" Width="280" IsReadOnly="True"/>
@@ -74,8 +66,7 @@
         </Border>
 
         <!-- Output folder + options -->
-        <Border Grid.Row="3" Background="#F7F7F7" BorderBrush="#D0D0D0" BorderThickness="1"
-                CornerRadius="3" Padding="10,8" Margin="0,10,0,10">
+        <Border Grid.Row="3" Background="#F7F7F7" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="3" Padding="10,8" Margin="0,10,0,10">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -90,20 +81,14 @@
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Output Folder:" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <TextBox x:Name="txtOutputFolder" Grid.Row="0" Grid.Column="1" Height="26" Margin="0,0,8,8"/>
-                <Button x:Name="btnBrowse" Grid.Row="0" Grid.Column="2"
-                        Content="Browse…" Width="90" Height="26" Margin="0,0,0,8" Click="btnBrowse_Click"/>
+                <TextBox x:Name="txtOutputFolder" Grid.Row="0" Grid.Column="1" Margin="0,0,8,8"/>
+                <!-- Removed Height -->
+                <Button x:Name="btnBrowse" Grid.Row="0" Grid.Column="2" Content="Browse…" Width="90" Margin="0,0,0,8" Click="btnBrowse_Click"/>
 
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Run At (optional):" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <DatePicker x:Name="dtpScheduleDate" Grid.Row="1" Grid.Column="1"
-                            HorizontalAlignment="Left" Width="160" Height="26" Margin="0,0,8,0"
-                            SelectedDateFormat="Short"/>
-                <TextBox x:Name="txtScheduleTime" Grid.Row="1" Grid.Column="2"
-                         Width="80" Height="26" Text="02:00" Margin="0,0,8,0"/>
-                <TextBlock Grid.Row="1" Grid.Column="3" VerticalAlignment="Center"
-                           Foreground="#777" FontSize="11" Margin="0,0,8,0"
-                           Text="(HH:mm). Leave blank to run now."/>
-
+                <DatePicker x:Name="dtpScheduleDate" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left" Width="160" Margin="0,0,8,0" SelectedDateFormat="Short"/>
+                <TextBox x:Name="txtScheduleTime" Grid.Row="1" Grid.Column="2" Width="80" Text="02:00" Margin="0,0,8,0"/>
+                <TextBlock Grid.Row="1" Grid.Column="3" VerticalAlignment="Center" Foreground="#777" FontSize="11" Margin="0,0,8,0" Text="(HH:mm). Leave blank to run now."/>
             </Grid>
         </Border>
 
@@ -112,14 +97,9 @@
             <ProgressBar x:Name="prgBatch" Height="18" Minimum="0" Maximum="100" Value="0" Margin="0,0,0,6"/>
             <TextBlock x:Name="lblStatus" Foreground="#555"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-                <Button x:Name="btnRunBatch" Content="Run Batch"
-                        Width="120" Height="34" Margin="0,0,8,0"
-                        Background="#1565C0" Foreground="White" FontWeight="Bold"
-                        Click="btnRunBatch_Click"/>
-                <Button x:Name="btnCancel" Content="Cancel"
-                        Width="90" Height="34" Margin="0,0,8,0" Click="btnCancel_Click"/>
-                <Button x:Name="btnClose" Content="Close"
-                        Width="90" Height="34" Click="btnClose_Click"/>
+                <Button x:Name="btnRunBatch" Content="Run Batch" Width="120" Height="34" Margin="0,0,8,0" Style="{StaticResource PrimaryButton}" Click="btnRunBatch_Click"/>
+                <Button x:Name="btnCancel" Content="Cancel" Width="90" Height="34" Margin="0,0,8,0" Click="btnCancel_Click"/>
+                <Button x:Name="btnClose" Content="Close" Width="90" Height="34" Click="btnClose_Click"/>
             </StackPanel>
         </StackPanel>
     </Grid>

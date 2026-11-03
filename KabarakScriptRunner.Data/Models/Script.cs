@@ -8,7 +8,7 @@ namespace KabarakScriptRunner.Data.Models
         private int? _departmentId;
 
         public int ScriptId { get; set; }
-        public int Version { get; set; } = 1;   // NEW
+        public int Version { get; set; } = 1;
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string SqlText { get; set; } = string.Empty;
@@ -16,6 +16,9 @@ namespace KabarakScriptRunner.Data.Models
         public bool NeedsDateFrom { get; set; }
         public bool NeedsDateTo { get; set; }
         public bool IsActive { get; set; }
+
+        // NEW: The database dialect this script is written for
+        public string TargetDatabase { get; set; } = "SQLServer";
 
         public int? DepartmentId
         {
