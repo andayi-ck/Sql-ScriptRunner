@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,8 +28,12 @@ namespace KabarakScriptRunner.Core.Services
 
             // Safety: refuse to execute any script that fails validation.
             // This is the last line of defense against bad SQL.
-            ScriptValidator.ValidateOrThrow(sqlText);
-
+            var (isValid, errors) = ScriptValidator.Validate(sqlText);
+            if (!isValid)
+            {
+                throw new InvalidOperationException(
+                    "Script validation failed:\n" + string.Join("\n", errors));
+            }
 
             // Retry policy: 2 retries with linear backoff (2s, 4s).
             // Kept short because each query already has a 5-minute timeout.
