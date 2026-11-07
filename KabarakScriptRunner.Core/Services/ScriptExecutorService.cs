@@ -11,11 +11,6 @@ namespace KabarakScriptRunner.Core.Services
 {
     public static class ScriptExecutorService
     {
-        /// <summary>
-        /// Executes a parameterized SELECT statement and returns the result as a DataTable.
-        /// Uses a 5-minute command timeout. Supports cooperative cancellation.
-        /// Retries up to 2 times on transient connection errors (2s, 4s delays).
-        /// </summary>
         public static async Task<DataTable> ExecuteScriptAsync(
             string connectionString,
             string sqlText,
@@ -27,16 +22,14 @@ namespace KabarakScriptRunner.Core.Services
                 throw new ArgumentException("SQL text is empty.", nameof(sqlText));
 
             // Safety: refuse to execute any script that fails validation.
-            // This is the last line of defense against bad SQL.
-            var (isValid, errors) = ScriptValidator.Validate(sqlText);
+            // Using the fully qualified name to avoid any namespace issues.
+            var (isValid, errors) = KabarakScriptRunner.Core.Services.ScriptValidator.Validate(sqlText);
             if (!isValid)
             {
                 throw new InvalidOperationException(
                     "Script validation failed:\n" + string.Join("\n", errors));
             }
 
-            // Retry policy: 2 retries with linear backoff (2s, 4s).
-            // Kept short because each query already has a 5-minute timeout.
             var policy = Policy
                 .Handle<SqlException>(ex => IsTransient(ex))
                 .Or<TimeoutException>()
@@ -55,7 +48,6 @@ namespace KabarakScriptRunner.Core.Services
 
                 var parameters = new DynamicParameters();
 
-                // Only pass parameters if the script actually references them
                 if (sqlText.Contains("@DateFrom", StringComparison.OrdinalIgnoreCase))
                     parameters.Add("@DateFrom", dateFrom, DbType.Date);
 
@@ -76,9 +68,6 @@ namespace KabarakScriptRunner.Core.Services
             });
         }
 
-        /// <summary>
-        /// Common SQL Server error numbers that represent transient failures.
-        /// </summary>
         private static bool IsTransient(SqlException ex)
         {
             int[] transientErrors = { -2, 20, 64, 233, 10053, 10054, 10060, 1205, 4060, 10928, 10929, 40197, 40501, 40613, 49918, 49919, 49920 };
