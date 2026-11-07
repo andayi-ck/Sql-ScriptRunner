@@ -47,7 +47,9 @@ namespace KabarakScriptRunner.Tests
                 var filePath = ExcelExportService.ExportToExcel(table, outputFolder, "Fees Report");
                 var fileName = Path.GetFileName(filePath);
 
-                // Check that the name is in the file, regardless of spaces/underscores
+                // DIAGNOSTIC: Print the actual filename to the console
+                Console.WriteLine("DIAGNOSTIC - Actual filename generated: " + fileName);
+
                 Assert.Contains("Fees", fileName);
                 Assert.Contains("Report", fileName);
             }

@@ -60,11 +60,14 @@ namespace KabarakScriptRunner.Tests
         }
 
         [Fact]
-        public void Validate_RejectsUnsupportedParameter()
+        public void Validate_AcceptsSqlWithParameters()
         {
+            // The new parser doesn't care about specific parameter names, 
+            // it only cares about syntax and that it's a SELECT.
             var sql = "SELECT * FROM uni.Students WHERE EnrolmentDate >= @CustomDate";
-            var result = ScriptValidator.Validate(sql);
-            Assert.False(result.IsValid);
+            var (isValid, errors) = ScriptValidator.Validate(sql);
+
+            Assert.True(isValid, string.Join("; ", errors));
         }
     }
 }
