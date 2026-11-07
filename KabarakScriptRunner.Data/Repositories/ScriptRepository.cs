@@ -29,7 +29,8 @@ namespace KabarakScriptRunner.Data.Repositories
                 using var connection = _context.CreateConnection();
                 const string sql = @"
                     SELECT u.UserId, u.DisplayName, u.PasswordHash, u.IsAdmin, u.IsActive,
-                           u.DepartmentId, d.DepartmentName
+                           u.DepartmentId, d.DepartmentName,
+                           u.FailedAttempts, u.LockoutEnd  -- <--- ADD THESE TWO COLUMNS
                     FROM app.Users u
                     LEFT JOIN app.Departments d ON u.DepartmentId = d.DepartmentId
                     WHERE u.UserId = @UserId AND u.IsActive = 1";
@@ -38,21 +39,7 @@ namespace KabarakScriptRunner.Data.Repositories
             });
         }
 
-        public async Task<IEnumerable<User>> GetAllUsersAsync()
-        {
-            return await RunWithRetryAsync(async () =>
-            {
-                using var connection = _context.CreateConnection();
-                const string sql = @"
-                    SELECT u.UserId, u.DisplayName, u.PasswordHash, u.IsAdmin, u.IsActive,
-                           u.DepartmentId, d.DepartmentName
-                    FROM app.Users u
-                    LEFT JOIN app.Departments d ON u.DepartmentId = d.DepartmentId
-                    ORDER BY u.DisplayName";
 
-                return await connection.QueryAsync<User>(sql);
-            });
-        }
 
         public async Task UpdateUserPasswordAsync(string userId, string newPasswordHash)
         {
@@ -61,6 +48,22 @@ namespace KabarakScriptRunner.Data.Repositories
                 using var connection = _context.CreateConnection();
                 const string sql = "UPDATE app.Users SET PasswordHash = @Hash WHERE UserId = @UserId";
                 await connection.ExecuteAsync(sql, new { Hash = newPasswordHash, UserId = userId });
+            });
+        }
+
+        public async Task<IEnumerable<UserSummary>> GetAllUsersAsync()
+        {
+            return await RunWithRetryAsync(async () =>
+            {
+                using var connection = _context.CreateConnection();
+                const string sql = @"
+                    SELECT u.UserId, u.DisplayName, u.IsAdmin, u.IsActive,
+                           u.DepartmentId, d.DepartmentName
+                    FROM app.Users u
+                    LEFT JOIN app.Departments d ON u.DepartmentId = d.DepartmentId
+                    ORDER BY u.DisplayName";
+
+                return await connection.QueryAsync<UserSummary>(sql);
             });
         }
 
@@ -165,6 +168,36 @@ namespace KabarakScriptRunner.Data.Repositories
             });
         }
 
+
+        public async Task IncrementFailedAttemptsAsync(string userId, int currentAttempts)
+        {
+            using var connection = _context.CreateConnection();
+            if (currentAttempts + 1 >= 5)
+            {
+                // Lock out for 5 minutes
+                await connection.ExecuteAsync(@"
+                    UPDATE app.Users 
+                    SET FailedAttempts = FailedAttempts + 1, 
+                        LockoutEnd = DATEADD(MINUTE, 5, GETDATE()) 
+                    WHERE UserId = @UserId", new { UserId = userId });
+            }
+            else
+            {
+                await connection.ExecuteAsync(
+                    "UPDATE app.Users SET FailedAttempts = FailedAttempts + 1 WHERE UserId = @UserId",
+                    new { UserId = userId });
+            }
+        }
+
+        public async Task ResetFailedAttemptsAsync(string userId)
+        {
+            using var connection = _context.CreateConnection();
+            await connection.ExecuteAsync(
+                "UPDATE app.Users SET FailedAttempts = 0, LockoutEnd = NULL WHERE UserId = @UserId",
+                new { UserId = userId });
+        }
+
+
         public async Task RestoreScriptVersionAsync(int scriptId, int versionToRestore)
         {
             await RunWithRetryAsync(async () =>
@@ -186,6 +219,120 @@ namespace KabarakScriptRunner.Data.Repositories
                     WHERE s.ScriptId = @ScriptId;";
 
                 await connection.ExecuteAsync(sql, new { ScriptId = scriptId, Version = versionToRestore });
+            });
+        }
+
+        // ============================================
+        // SCRIPT COMPILER / EDITOR
+        // ============================================
+
+        
+
+        public async Task<(bool IsDuplicate, string Reason)> CheckScriptDuplicateAsync(string name, string sqlText)
+        {
+            return await RunWithRetryAsync(async () =>
+            {
+                using var connection = _context.CreateConnection();
+
+                var existingByName = await connection.QueryFirstOrDefaultAsync<string>(
+                    "SELECT Name FROM app.Scripts WHERE Name = @Name", new { Name = name });
+
+                if (existingByName != null)
+                    return (true, $"A script with the name '{name}' already exists.");
+
+                var existingBySql = await connection.QueryFirstOrDefaultAsync<string>(
+                    "SELECT Name FROM app.Scripts WHERE SqlText = @SqlText", new { SqlText = sqlText });
+
+                if (existingBySql != null)
+                    return (true, $"This exact SQL query already exists in the script named '{existingBySql}'.");
+
+                return (false, string.Empty);
+            });
+        }
+
+        // Renamed to CreateUserAsync to avoid conflict with CreateScriptAsync
+        public async Task CreateUserAsync(string userId, string displayName, string passwordHash, bool isAdmin, int? departmentId)
+        {
+            await RunWithRetryAsync(async () =>
+            {
+                using var connection = _context.CreateConnection();
+                const string sql = @"
+                    INSERT INTO app.Users (UserId, DisplayName, PasswordHash, IsAdmin, IsActive, DepartmentId)
+                    VALUES (@UserId, @DisplayName, @PasswordHash, @IsAdmin, 1, @DepartmentId);";
+
+                await connection.ExecuteAsync(sql, new
+                {
+                    UserId = userId,
+                    DisplayName = displayName,
+                    PasswordHash = passwordHash,
+                    IsAdmin = isAdmin,
+                    DepartmentId = departmentId
+                });
+            });
+        }
+
+        public async Task CreateScriptAsync(
+            string name,
+            string description,
+            string sqlText,
+            string category,
+            string targetDatabase,
+            bool needsDateFrom,
+            bool needsDateTo,
+            int? departmentId)
+        {
+            await RunWithRetryAsync(async () =>
+            {
+                using var connection = _context.CreateConnection();
+                const string sql = @"
+                    INSERT INTO app.Scripts 
+                        (Name, Description, SqlText, Category, TargetDatabase, NeedsDateFrom, NeedsDateTo, IsActive, DepartmentId, Version)
+                    VALUES 
+                        (@Name, @Description, @SqlText, @Category, @TargetDatabase, @NeedsDateFrom, @NeedsDateTo, 1, @DepartmentId, 1);";
+
+                await connection.ExecuteAsync(sql, new
+                {
+                    Name = name,
+                    Description = description,
+                    SqlText = sqlText,
+                    Category = category,
+                    TargetDatabase = targetDatabase,
+                    NeedsDateFrom = needsDateFrom,
+                    NeedsDateTo = needsDateTo,
+                    DepartmentId = departmentId
+                });
+            });
+        }
+
+        public async Task UpdateUserAsync(string userId, string displayName, bool isAdmin, int? departmentId)
+        {
+            await RunWithRetryAsync(async () =>
+            {
+                using var connection = _context.CreateConnection();
+                const string sql = @"
+                    UPDATE app.Users
+                    SET DisplayName = @DisplayName,
+                        IsAdmin = @IsAdmin,
+                        DepartmentId = @DepartmentId
+                    WHERE UserId = @UserId;";
+
+                await connection.ExecuteAsync(sql, new
+                {
+                    UserId = userId,
+                    DisplayName = displayName,
+                    IsAdmin = isAdmin,
+                    DepartmentId = departmentId
+                });
+            });
+        }
+
+        public async Task SetUserActiveAsync(string userId, bool isActive)
+        {
+            await RunWithRetryAsync(async () =>
+            {
+                using var connection = _context.CreateConnection();
+                const string sql = "UPDATE app.Users SET IsActive = @IsActive WHERE UserId = @UserId;";
+                await connection.ExecuteAsync(sql, new { UserId = userId, IsActive = isActive });
             });
         }
 
@@ -285,62 +432,6 @@ namespace KabarakScriptRunner.Data.Repositories
                     FinishedAt = DateTime.Now,
                     ErrorMessage = errorMessage
                 });
-            });
-        }
-
-        // ============================================
-        // USER MANAGEMENT
-        // ============================================
-
-        public async Task CreateUserAsync(string userId, string displayName, string passwordHash, bool isAdmin, int? departmentId)
-        {
-            await RunWithRetryAsync(async () =>
-            {
-                using var connection = _context.CreateConnection();
-                const string sql = @"
-                    INSERT INTO app.Users (UserId, DisplayName, PasswordHash, IsAdmin, IsActive, DepartmentId)
-                    VALUES (@UserId, @DisplayName, @PasswordHash, @IsAdmin, 1, @DepartmentId);";
-
-                await connection.ExecuteAsync(sql, new
-                {
-                    UserId = userId,
-                    DisplayName = displayName,
-                    PasswordHash = passwordHash,
-                    IsAdmin = isAdmin,
-                    DepartmentId = departmentId
-                });
-            });
-        }
-
-        public async Task UpdateUserAsync(string userId, string displayName, bool isAdmin, int? departmentId)
-        {
-            await RunWithRetryAsync(async () =>
-            {
-                using var connection = _context.CreateConnection();
-                const string sql = @"
-                    UPDATE app.Users
-                    SET DisplayName = @DisplayName,
-                        IsAdmin = @IsAdmin,
-                        DepartmentId = @DepartmentId
-                    WHERE UserId = @UserId;";
-
-                await connection.ExecuteAsync(sql, new
-                {
-                    UserId = userId,
-                    DisplayName = displayName,
-                    IsAdmin = isAdmin,
-                    DepartmentId = departmentId
-                });
-            });
-        }
-
-        public async Task SetUserActiveAsync(string userId, bool isActive)
-        {
-            await RunWithRetryAsync(async () =>
-            {
-                using var connection = _context.CreateConnection();
-                const string sql = "UPDATE app.Users SET IsActive = @IsActive WHERE UserId = @UserId;";
-                await connection.ExecuteAsync(sql, new { UserId = userId, IsActive = isActive });
             });
         }
 
@@ -449,67 +540,6 @@ namespace KabarakScriptRunner.Data.Repositories
         }
 
         // ============================================
-        // SCRIPT COMPILER / EDITOR
-        // ============================================
-
-        /// <summary>
-        /// Validates the syntax of a SQL query against the connected SQL Server database.
-        /// </summary>
-        public async Task<(bool IsValid, string ErrorMessage)> ValidateSqlSyntaxAsync(string sqlText)
-        {
-            return await RunWithRetryAsync(async () =>
-            {
-                using var connection = _context.CreateConnection();
-                // SET PARSEONLY ON tells SQL Server to check syntax without executing
-                try
-                {
-                    await connection.ExecuteAsync("SET PARSEONLY ON; " + sqlText + " SET PARSEONLY OFF;");
-                    return (true, string.Empty);
-                }
-                catch (SqlException ex)
-                {
-                    return (false, ex.Message);
-                }
-            });
-        }
-
-        /// <summary>
-        /// Inserts a new script into the database.
-        /// </summary>
-        public async Task CreateScriptAsync(
-            string name,
-            string description,
-            string sqlText,
-            string category,
-            string targetDatabase,
-            bool needsDateFrom,
-            bool needsDateTo,
-            int? departmentId)
-        {
-            await RunWithRetryAsync(async () =>
-            {
-                using var connection = _context.CreateConnection();
-                const string sql = @"
-                    INSERT INTO app.Scripts 
-                        (Name, Description, SqlText, Category, TargetDatabase, NeedsDateFrom, NeedsDateTo, IsActive, DepartmentId, Version)
-                    VALUES 
-                        (@Name, @Description, @SqlText, @Category, @TargetDatabase, @NeedsDateFrom, @NeedsDateTo, 1, @DepartmentId, 1);";
-
-                await connection.ExecuteAsync(sql, new
-                {
-                    Name = name,
-                    Description = description,
-                    SqlText = sqlText,
-                    Category = category,
-                    TargetDatabase = targetDatabase,
-                    NeedsDateFrom = needsDateFrom,
-                    NeedsDateTo = needsDateTo,
-                    DepartmentId = departmentId
-                });
-            });
-        }
-
-        // ============================================
         // RESILIENCE HELPERS
         // ============================================
 
@@ -524,8 +554,6 @@ namespace KabarakScriptRunner.Data.Repositories
 
             return await policy.ExecuteAsync(operation);
         }
-
-
 
         private async Task RunWithRetryAsync(Func<Task> operation)
         {

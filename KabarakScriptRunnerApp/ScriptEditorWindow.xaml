@@ -20,30 +20,93 @@
             <TextBlock Text="Paste a query, test its syntax, and save it to the database." Style="{StaticResource MutedText}" Margin="0,4,0,0"/>
         </StackPanel>
 
-        <!-- Main Content -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="320"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Left: SQL Editor -->
-            <Border Grid.Column="0" Style="{StaticResource CardBorder}" Padding="16" Margin="0,0,12,0">
+            <!-- Left: SQL Editor with Line Numbers -->
+            <Border Grid.Column="0" Style="{StaticResource CardBorder}" Padding="0" Margin="0,0,12,0">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="SQL Query" Style="{StaticResource SectionTitle}" Margin="0,0,0,8"/>
-                    <TextBox x:Name="txtSqlText" Grid.Row="1" 
-                             AcceptsReturn="True" TextWrapping="Wrap" 
-                             VerticalScrollBarVisibility="Auto"
-                             FontFamily="Consolas" FontSize="13"
-                             Padding="8"/>
+
+                    <!-- Header -->
+                    <Border Grid.Row="0" Background="#F8F9FA" Padding="12,8" BorderBrush="{StaticResource Brush.Border}" BorderThickness="0,0,0,1">
+                        <TextBlock Text="SQL Query" Style="{StaticResource SectionTitle}"/>
+                    </Border>
+
+                    <!-- The Editor Area -->
+                    <Grid Grid.Row="1" Background="White">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="40"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Line Numbers -->
+                        <Border Grid.Column="0" Background="#F3F4F6" BorderBrush="#E5E7EB" BorderThickness="0,0,1,0">
+                            <TextBlock x:Name="txtLineNumbers" 
+                                       Text="1" 
+                                       FontFamily="Consolas" FontSize="13" 
+                                       Foreground="#9CA3AF" 
+                                       TextAlignment="Center" 
+                                       Margin="0,10,0,0"/>
+                        </Border>
+
+                        <!-- Text Box and Placeholder -->
+                        <Grid Grid.Column="1">
+                            <!-- The TextBox is transparent so it doesn't hide the placeholder, but it's on top so it gets the clicks -->
+                            <TextBox x:Name="txtSqlText"
+                                     AcceptsReturn="True" 
+                                     TextWrapping="NoWrap" 
+                                     VerticalScrollBarVisibility="Auto"
+                                     HorizontalScrollBarVisibility="Auto"
+                                     FontFamily="Consolas" FontSize="13"
+                                     Padding="10"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     TextChanged="txtSqlText_TextChanged"
+                                     ScrollViewer.ScrollChanged="txtSqlText_ScrollChanged"/>
+
+                            <!-- The Placeholder text sits underneath -->
+                            <TextBlock x:Name="txtPlaceholder" 
+                                       Text="(Type your SQL Query here...)" 
+                                       FontFamily="Consolas" FontSize="13"
+                                       Foreground="#9CA3AF" 
+                                       IsHitTestVisible="False" 
+                                       Margin="10,10,0,0" 
+                                       VerticalAlignment="Top" 
+                                       HorizontalAlignment="Left">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Text, ElementName=txtSqlText}" Value="">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                    </Grid>
+
+                    <!-- Status Bar -->
+                    <Border Grid.Row="2" Background="#F8F9FA" Padding="12,6" BorderBrush="{StaticResource Brush.Border}" BorderThickness="0,1,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="lblCursorPosition" Text="Ln 1, Col 1" FontSize="11" Foreground="{StaticResource Brush.TextMuted}"/>
+                            <TextBlock Text="  |  " FontSize="11" Foreground="{StaticResource Brush.TextMuted}"/>
+                            <TextBlock x:Name="lblCharCount" Text="0 characters" FontSize="11" Foreground="{StaticResource Brush.TextMuted}"/>
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </Border>
 
-            <!-- Right: Metadata & Actions -->
+            <!-- Right: Metadata -->
             <Border Grid.Column="1" Style="{StaticResource CardBorder}" Padding="16">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -64,19 +127,15 @@
 
                     <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Text="Script Details" Style="{StaticResource SectionTitle}" Margin="0,0,0,12"/>
 
-                    <!-- Name -->
                     <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Name"/>
                     <TextBox x:Name="txtName" Grid.Row="1" Grid.Column="1" Margin="0,0,0,8"/>
 
-                    <!-- Description -->
                     <TextBlock Grid.Row="2" Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Description"/>
                     <TextBox x:Name="txtDescription" Grid.Row="2" Grid.Column="1" Margin="0,0,0,8"/>
 
-                    <!-- Category -->
                     <TextBlock Grid.Row="3" Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Category"/>
                     <TextBox x:Name="txtCategory" Grid.Row="3" Grid.Column="1" Margin="0,0,0,8"/>
 
-                    <!-- Target Database -->
                     <TextBlock Grid.Row="4" Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Target DB"/>
                     <ComboBox x:Name="cmbTargetDatabase" Grid.Row="4" Grid.Column="1" Margin="0,0,0,8">
                         <ComboBoxItem Content="SQLServer" IsSelected="True"/>
@@ -85,26 +144,22 @@
                         <ComboBoxItem Content="Oracle"/>
                     </ComboBox>
 
-                    <!-- Department -->
                     <TextBlock Grid.Row="5" Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Department"/>
                     <ComboBox x:Name="cmbDepartment" Grid.Row="5" Grid.Column="1" Margin="0,0,0,8"
                               DisplayMemberPath="DepartmentName" SelectedValuePath="DepartmentId"/>
 
-                    <!-- Date Parameters -->
                     <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,8,0,8">
                         <CheckBox x:Name="chkNeedsDateFrom" Content="Needs @DateFrom" IsChecked="True" Margin="0,0,16,0"/>
                         <CheckBox x:Name="chkNeedsDateTo" Content="Needs @DateTo" IsChecked="True"/>
                     </StackPanel>
 
-                    <!-- Validation Status -->
                     <TextBlock x:Name="lblValidationStatus" Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2" 
                                TextWrapping="Wrap" Margin="0,8,0,8" FontWeight="SemiBold"/>
-
                 </Grid>
             </Border>
         </Grid>
 
-        <!-- Footer Buttons -->
+        <!-- Footer -->
         <Grid Grid.Row="2" Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>

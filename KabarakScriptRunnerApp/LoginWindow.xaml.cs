@@ -1,8 +1,10 @@
-﻿using System.Windows;
+﻿using System;
+using System.Windows;
 using System.Windows.Controls;
 using KabarakScriptRunner.Data.Models;
 using KabarakScriptRunner.Data.Repositories;
 using KabarakScriptRunner.Core.Security;
+using Serilog; // Make sure you have Serilog imported for F-07 error logging
 
 namespace KabarakScriptRunnerApp
 {
@@ -30,9 +32,11 @@ namespace KabarakScriptRunnerApp
                 if (cmbDepartment.Items.Count > 0)
                     cmbDepartment.SelectedIndex = 0;
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                lblError.Text = $"Failed to load departments: {ex.Message}";
+                // F-07 Fix: Log the real error, show generic
+                Log.Error(ex, "Failed to load departments on login screen");
+                lblError.Text = "Failed to load departments. Please check your connection or contact support.";
             }
         }
 
@@ -65,17 +69,35 @@ namespace KabarakScriptRunnerApp
                     return;
                 }
 
-                // 2. Password must match
-                bool passwordOk = PasswordHasher.Verify(password, user.PasswordHash);
-                if (!passwordOk)
+                // 2. Check if currently locked out (F-05/F-06)
+                if (user.LockoutEnd.HasValue && user.LockoutEnd.Value > DateTime.Now)
                 {
-                    lblError.Text = "Incorrect username, password, or department. Please try again.";
-                    await LogAuditAsync(username, "LoginFailure", "User", username,
-                        $"Login failed: incorrect password. Department attempted: {selectedDept.DepartmentName}");
+                    var remaining = Math.Ceiling((user.LockoutEnd.Value - DateTime.Now).TotalMinutes);
+                    lblError.Text = $"Account is locked. Please try again in {remaining} minute(s).";
                     return;
                 }
 
-                // 3. Department must match (unless admin)
+                // 3. Password must match
+                bool passwordOk = PasswordHasher.Verify(password, user.PasswordHash);
+                if (!passwordOk)
+                {
+                    await _scriptRepository.IncrementFailedAttemptsAsync(user.UserId, user.FailedAttempts);
+
+                    if (user.FailedAttempts + 1 >= 5)
+                    {
+                        lblError.Text = "Account locked for 5 minutes due to too many failed attempts.";
+                        await LogAuditAsync(username, "AccountLocked", "User", username, "Locked out for 5 minutes.");
+                    }
+                    else
+                    {
+                        lblError.Text = "Incorrect username, password, or department. Please try again.";
+                        await LogAuditAsync(username, "LoginFailure", "User", username,
+                            $"Login failed: incorrect password. Department attempted: {selectedDept.DepartmentName}");
+                    }
+                    return;
+                }
+
+                // 4. Department must match (unless admin)
                 if (!user.IsAdmin)
                 {
                     if (user.DepartmentId == null || user.DepartmentId != selectedDept.DepartmentId)
@@ -88,7 +110,9 @@ namespace KabarakScriptRunnerApp
                     }
                 }
 
-                // 4. Success
+                // 5. Success: Reset failed attempts
+                await _scriptRepository.ResetFailedAttemptsAsync(user.UserId);
+
                 AuthenticatedUser = user;
                 SelectedDepartment = selectedDept;
 
@@ -98,15 +122,14 @@ namespace KabarakScriptRunnerApp
                 DialogResult = true;
                 Close();
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                lblError.Text = $"Error: {ex.Message}";
+                // F-07 Fix: Log the real error, show generic
+                Log.Error(ex, "Unexpected error during login");
+                lblError.Text = "An unexpected error occurred. Please try again later.";
             }
         }
 
-        /// <summary>
-        /// Writes an audit trail row. Swallows errors so auditing never blocks the user.
-        /// </summary>
         private async Task LogAuditAsync(string userId, string actionType, string? targetType, string? targetId, string? details)
         {
             try
@@ -118,7 +141,6 @@ namespace KabarakScriptRunnerApp
                 // Never let an audit failure break login.
             }
         }
-
 
         private void btnCancel_Click(object sender, RoutedEventArgs e)
         {

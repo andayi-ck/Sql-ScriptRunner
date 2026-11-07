@@ -1,0 +1,99 @@
+﻿  Determining projects to restore...
+C:\Users\User\source\repos\KabarakScriptRunnerApp\KabarakScriptRunnerApp\KabarakScriptRunnerApp.csproj : warning NU1701: Package 'OpenTK 3.3.1' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net10.0-windows7.0'. This package may not be fully compatible with your project.
+C:\Users\User\source\repos\KabarakScriptRunnerApp\KabarakScriptRunnerApp\KabarakScriptRunnerApp.csproj : warning NU1701: Package 'OpenTK.GLWpfControl 3.3.0' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net10.0-windows7.0'. This package may not be fully compatible with your project.
+C:\Users\User\source\repos\KabarakScriptRunnerApp\KabarakScriptRunnerApp\KabarakScriptRunnerApp.csproj : warning NU1701: Package 'SkiaSharp.Views.WPF 3.119.0' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net10.0-windows7.0'. This package may not be fully compatible with your project.
+C:\Users\User\source\repos\KabarakScriptRunnerApp\KabarakScriptRunnerApp\KabarakScriptRunnerApp.csproj : warning NU1701: Package 'ToastNotifications 2.5.1' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net10.0-windows7.0'. This package may not be fully compatible with your project.
+C:\Users\User\source\repos\KabarakScriptRunnerApp\KabarakScriptRunnerApp\KabarakScriptRunnerApp.csproj : warning NU1701: Package 'ToastNotifications.Messages 2.5.1' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net10.0-windows7.0'. This package may not be fully compatible with your project.
+  All projects are up-to-date for restore.
+Project 'KabarakScriptRunnerApp' has the following package references
+   [net10.0-windows]: 
+   Top-level Package                       Requested   Resolved
+   > BCrypt.Net-Next                       4.2.0       4.2.0   
+   > FluentValidation                      12.2.0      12.2.0  
+   > LiveChartsCore.SkiaSharpView.WPF      2.0.5       2.0.5   
+   > Microsoft.Extensions.Hosting          9.0.0       9.0.0   
+   > Notification.Wpf                      11.0.0      11.0.0  
+   > QuestPDF                              2026.9.1    2026.9.1
+   > Sentry                                6.12.1      6.12.1  
+   > Serilog.Extensions.Logging            10.0.0      10.0.0  
+   > Serilog.Sinks.Console                 6.1.1       6.1.1   
+   > Serilog.Sinks.Debug                   3.0.0       3.0.0   
+   > Serilog.Sinks.File                    7.0.0       7.0.0   
+   > ToastNotifications                    2.5.1       2.5.1   
+   > ToastNotifications.Messages           2.5.1       2.5.1   
+
+   Transitive Package                                             Resolved 
+   > ClosedXML                                                    0.105.1  
+   > ClosedXML.Parser                                             2.0.0    
+   > Dapper                                                       2.1.89   
+   > DocumentFormat.OpenXml                                       3.1.1    
+   > DocumentFormat.OpenXml.Framework                             3.1.1    
+   > ExcelNumberFormat                                            1.1.0    
+   > HarfBuzzSharp                                                8.3.1.1  
+   > HarfBuzzSharp.NativeAssets.macOS                             8.3.1.1  
+   > HarfBuzzSharp.NativeAssets.Win32                             8.3.1.1  
+   > LiveChartsCore                                               2.0.5    
+   > LiveChartsCore.SkiaSharpView                                 2.0.5    
+   > Microsoft.Bcl.Cryptography                                   9.0.18   
+   > Microsoft.Data.SqlClient                                     7.1.0    
+   > Microsoft.Data.SqlClient.Extensions.Abstractions             7.1.0    
+   > Microsoft.Data.SqlClient.Internal.Logging                    7.1.0    
+   > Microsoft.Data.SqlClient.SNI.runtime                         7.1.0    
+   > Microsoft.Extensions.Caching.Abstractions                    9.0.18   
+   > Microsoft.Extensions.Caching.Memory                          9.0.18   
+   > Microsoft.Extensions.Configuration                           9.0.0    
+   > Microsoft.Extensions.Configuration.Abstractions              10.0.9   
+   > Microsoft.Extensions.Configuration.Binder                    9.0.0    
+   > Microsoft.Extensions.Configuration.CommandLine               9.0.0    
+   > Microsoft.Extensions.Configuration.EnvironmentVariables      9.0.0    
+   > Microsoft.Extensions.Configuration.FileExtensions            9.0.0    
+   > Microsoft.Extensions.Configuration.Json                      9.0.0    
+   > Microsoft.Extensions.Configuration.UserSecrets               9.0.0    
+   > Microsoft.Extensions.DependencyInjection                     10.0.0   
+   > Microsoft.Extensions.DependencyInjection.Abstractions        10.0.9   
+   > Microsoft.Extensions.Diagnostics                             9.0.0    
+   > Microsoft.Extensions.Diagnostics.Abstractions                10.0.9   
+   > Microsoft.Extensions.FileProviders.Abstractions              10.0.9   
+   > Microsoft.Extensions.FileProviders.Physical                  9.0.0    
+   > Microsoft.Extensions.FileSystemGlobbing                      9.0.0    
+   > Microsoft.Extensions.Hosting.Abstractions                    10.0.9   
+   > Microsoft.Extensions.Logging                                 10.0.0   
+   > Microsoft.Extensions.Logging.Abstractions                    10.0.9   
+   > Microsoft.Extensions.Logging.Configuration                   9.0.0    
+   > Microsoft.Extensions.Logging.Console                         9.0.0    
+   > Microsoft.Extensions.Logging.Debug                           9.0.0    
+   > Microsoft.Extensions.Logging.EventLog                        9.0.0    
+   > Microsoft.Extensions.Logging.EventSource                     9.0.0    
+   > Microsoft.Extensions.Options                                 10.0.9   
+   > Microsoft.Extensions.Options.ConfigurationExtensions         9.0.0    
+   > Microsoft.Extensions.Primitives                              10.0.9   
+   > Microsoft.IdentityModel.Abstractions                         8.16.0   
+   > Microsoft.IdentityModel.JsonWebTokens                        8.16.0   
+   > Microsoft.IdentityModel.Logging                              8.16.0   
+   > Microsoft.IdentityModel.Protocols                            8.16.0   
+   > Microsoft.IdentityModel.Protocols.OpenIdConnect              8.16.0   
+   > Microsoft.IdentityModel.Tokens                               8.16.0   
+   > Microsoft.SqlServer.Server                                   1.0.0    
+   > Microsoft.SqlServer.TransactSql.ScriptDom                    180.140.0
+   > Microsoft.Xaml.Behaviors.Wpf                                 1.1.142  
+   > Notification.CoreUI                                          11.0.0   
+   > OpenAI                                                       2.14.0   
+   > OpenTK                                                       3.3.1    
+   > OpenTK.GLWpfControl                                          3.3.0    
+   > Polly                                                        8.8.0    
+   > Polly.Core                                                   8.8.0    
+   > RBush.Signed                                                 4.0.0    
+   > Serilog                                                      4.2.0    
+   > SixLabors.Fonts                                              1.0.0    
+   > SkiaSharp                                                    3.119.0  
+   > SkiaSharp.HarfBuzz                                           3.119.0  
+   > SkiaSharp.NativeAssets.macOS                                 3.119.0  
+   > SkiaSharp.NativeAssets.Win32                                 3.119.0  
+   > SkiaSharp.Views.Desktop.Common                               3.119.0  
+   > SkiaSharp.Views.WPF                                          3.119.0  
+   > System.ClientModel                                           1.15.0   
+   > System.IdentityModel.Tokens.Jwt                              8.16.0   
+   > System.Memory.Data                                           10.0.9   
+   > System.Threading.RateLimiting                                9.0.18   
+   > System.ValueTuple                                            4.6.2    
+

@@ -57,23 +57,14 @@ namespace KabarakScriptRunnerApp
 
         private async void btnEdit_Click(object sender, RoutedEventArgs e)
         {
-            if (dgUsers.SelectedItem is not User selected)
-            {
-                MessageBox.Show("Please select a user to edit.",
-                    "No Selection", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
+            if (dgUsers.SelectedItem is not UserSummary selected) return;
 
-            var dlg = new UserEditWindow(_scriptRepository, selected, _currentAdmin.UserId)
-            {
-                Owner = this
-            };
+            // Fetch the full user (with hash) just for the edit screen
+            var fullUser = await _scriptRepository.GetUserByIdAsync(selected.UserId);
+            if (fullUser == null) return;
 
-            if (dlg.ShowDialog() == true)
-            {
-                ToastService.Success("User updated successfully.");
-                await LoadUsersAsync();
-            }
+            var dlg = new UserEditWindow(_scriptRepository, fullUser, _currentAdmin.UserId) { Owner = this };
+            if (dlg.ShowDialog() == true) await LoadUsersAsync();
         }
 
         private async void btnToggle_Click(object sender, RoutedEventArgs e)

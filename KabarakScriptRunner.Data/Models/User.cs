@@ -15,5 +15,10 @@ namespace KabarakScriptRunner.Data.Models
         // Department info
         public int? DepartmentId { get; set; }
         public string? DepartmentName { get; set; }
+
+        public int FailedAttempts { get; set; }
+        public DateTime? LockoutEnd { get; set; }
+
+
     }
 }

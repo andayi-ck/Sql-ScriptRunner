@@ -44,6 +44,9 @@ namespace KabarakScriptRunnerApp
                 options.Dsn = "https://bd56e5a195b8278925ccee373025da6c@o4511828680704000.ingest.de.sentry.io/4512289773387856";
                 options.Debug = false;
                 options.IsGlobalModeEnabled = true;
+
+                // NEW: Do not send IP addresses or usernames to Sentry
+                options.SendDefaultPii = false;
             });
 
             var logFolder = Path.Combine(

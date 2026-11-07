@@ -26,6 +26,9 @@
     <SelfContained>false</SelfContained>
     <PublishSingleFile>false</PublishSingleFile>
 
+	<!-- ADD THIS LINE HERE -->
+	<RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+	  
     <!-- =========================================================== -->
     <!--  SENTRY DEBUG SYMBOL UPLOADING (Optional but recommended)   -->
     <!-- =========================================================== -->

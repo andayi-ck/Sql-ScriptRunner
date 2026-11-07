@@ -367,6 +367,17 @@ namespace KabarakScriptRunnerApp
             window.ShowDialog();
         }
 
+        private void btnScriptEditor_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentUser == null || !_currentUser.IsAdmin) return;
+
+            var editor = new ScriptEditorWindow(_scriptRepository) { Owner = this };
+            if (editor.ShowDialog() == true)
+            {
+                _ = LoadScriptsAsync(true);
+            }
+        }
+
         private async void btnRefresh_Click(object sender, RoutedEventArgs e)
         {
             await LoadScriptsAsync(true);
@@ -397,7 +408,7 @@ namespace KabarakScriptRunnerApp
 
             var selectedScripts = lstScripts.SelectedItems.Cast<Script>().ToList();
 
-            // NEW: Check for dialect mismatch before proceeding
+            // Check for dialect mismatch before proceeding
             var mismatchedScripts = selectedScripts.Where(s =>
                 !string.Equals(s.TargetDatabase, App.CurrentDatabaseType, StringComparison.OrdinalIgnoreCase)).ToList();
 
@@ -559,18 +570,6 @@ namespace KabarakScriptRunnerApp
             if (_currentUser == null || !_currentUser.IsAdmin) return;
             var window = new ChangePasswordWindow(_scriptRepository, _currentUser.UserId) { Owner = this };
             window.ShowDialog();
-        }
-
-        private void btnScriptEditor_Click(object sender, RoutedEventArgs e)
-        {
-            if (_currentUser == null || !_currentUser.IsAdmin) return;
-
-            var editor = new ScriptEditorWindow(_scriptRepository) { Owner = this };
-            if (editor.ShowDialog() == true)
-            {
-                // Refresh the script list if a new script was saved
-                _ = LoadScriptsAsync(true);
-            }
         }
 
         private void btnClose_Click(object sender, RoutedEventArgs e)

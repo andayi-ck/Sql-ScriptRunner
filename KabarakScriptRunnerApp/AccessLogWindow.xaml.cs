@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using KabarakScriptRunner.Core.Services;
 using KabarakScriptRunner.Data.Repositories;
+using Serilog; // F-07 Fix
 
 namespace KabarakScriptRunnerApp
 {
@@ -26,13 +27,13 @@ namespace KabarakScriptRunnerApp
         {
             try
             {
+                // F-10 Fix: Use UserSummary instead of User
                 var users = (await _scriptRepository.GetAllUsersAsync()).ToList();
 
-                // Create a clean list for the dropdown
                 var userList = new System.Collections.Generic.List<object>
-        {
-            new { UserId = "", DisplayName = "(All Users)" } // Placeholder
-        };
+                {
+                    new { UserId = "", DisplayName = "(All Users)" } // Placeholder
+                };
 
                 foreach (var u in users)
                 {
@@ -40,8 +41,8 @@ namespace KabarakScriptRunnerApp
                 }
 
                 cmbUser.ItemsSource = userList;
-                cmbUser.SelectedValuePath = "UserId"; // Tell it to use the UserId property for the value
-                cmbUser.DisplayMemberPath = "DisplayName"; // Tell it to use the DisplayName property for the text
+                cmbUser.SelectedValuePath = "UserId";
+                cmbUser.DisplayMemberPath = "DisplayName";
                 cmbUser.SelectedIndex = 0;
 
                 dtpFrom.SelectedDate = DateTime.Today.AddDays(-30);
@@ -51,11 +52,11 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to initialize:\n\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                // F-07 Fix: Log real, show generic
+                Log.Error(ex, "Failed to initialize Access Log Window");
+                MessageBox.Show("Failed to load initial data. Please try again.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-
-
 
         private async Task LoadActiveTabAsync()
         {
@@ -71,7 +72,6 @@ namespace KabarakScriptRunnerApp
         {
             try
             {
-                // Extract the UserId from the selected anonymous object
                 string? userId = null;
                 var selectedItem = cmbUser.SelectedItem;
                 if (selectedItem != null)
@@ -93,7 +93,8 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load script runs:\n\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                Log.Error(ex, "Failed to load script runs");
+                MessageBox.Show("Failed to load script runs.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -122,7 +123,8 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load admin actions:\n\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                Log.Error(ex, "Failed to load admin actions");
+                MessageBox.Show("Failed to load admin actions.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -192,7 +194,8 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load analytics:\n\n{ex.Message}", "Analytics Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                Log.Error(ex, "Failed to load analytics");
+                MessageBox.Show("Failed to load analytics.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -225,7 +228,6 @@ namespace KabarakScriptRunnerApp
 
         private async void btnExportPdf_Click(object sender, RoutedEventArgs e)
         {
-            // ... (Your existing PDF export code remains the same) ...
             try
             {
                 DataTable table;
@@ -234,7 +236,14 @@ namespace KabarakScriptRunnerApp
 
                 if (tabLogs.SelectedIndex == 0) // Script Runs
                 {
-                    var userId = (cmbUser.SelectedItem as KabarakScriptRunner.Data.Models.User)?.UserId;
+                    var userId = (cmbUser.SelectedItem as KabarakScriptRunner.Data.Models.User)?.UserId; // Note: This might need to be UserSummary if the cast fails
+                    // F-10 Fix: We need to safely get the UserId from the anonymous object now
+                    if (cmbUser.SelectedItem != null)
+                    {
+                        var prop = cmbUser.SelectedItem.GetType().GetProperty("UserId");
+                        if (prop != null) userId = prop.GetValue(cmbUser.SelectedItem, null) as string;
+                    }
+
                     var status = (cmbStatus.SelectedItem as ComboBoxItem)?.Content?.ToString();
                     if (status == "(All)") status = null;
                     table = await _scriptRepository.GetScriptRunsAsync(dtpFrom.SelectedDate, dtpTo.SelectedDate, userId, status);
@@ -267,7 +276,8 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to export PDF:\n\n{ex.Message}", "Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                Log.Error(ex, "Failed to export PDF");
+                MessageBox.Show("Failed to export PDF. Please check the application logs.", "Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

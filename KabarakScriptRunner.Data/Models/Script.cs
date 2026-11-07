@@ -16,9 +16,7 @@ namespace KabarakScriptRunner.Data.Models
         public bool NeedsDateFrom { get; set; }
         public bool NeedsDateTo { get; set; }
         public bool IsActive { get; set; }
-
-        // NEW: The database dialect this script is written for
-        public string TargetDatabase { get; set; } = "SQLServer";
+        public string TargetDatabase { get; set; } = "SQLServer"; // <--- THIS WAS MISSING
 
         public int? DepartmentId
         {

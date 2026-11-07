@@ -1,193 +1,77 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
+using Microsoft.SqlServer.TransactSql.ScriptDom;
 
 namespace KabarakScriptRunner.Core.Services
 {
-    /// <summary>
-    /// Validates that a SQL script is safe to store and run.
-    /// Rules: only SELECT statements; no DDL/DML; no dangerous keywords;
-    /// no multiple statements; only allow-listed parameters.
-    /// </summary>
     public static class ScriptValidator
     {
-        /// <summary>
-        /// Keywords that are forbidden anywhere in the script.
-        /// Word-boundary matched so we don't false-positive on identifiers
-        /// like "CreatedDate" containing "create".
-        /// </summary>
-        private static readonly string[] ForbiddenKeywords =
+        public static (bool IsValid, List<string> Errors) Validate(string sqlText)
         {
-            // DML
-            "INSERT", "UPDATE", "DELETE", "MERGE", "TRUNCATE",
-            // DDL
-            "CREATE", "ALTER", "DROP",
-            // Permissions & execution
-            "GRANT", "REVOKE", "DENY", "EXEC", "EXECUTE",
-            // Server-level
-            "SHUTDOWN", "BACKUP", "RESTORE", "BULK",
-            // Stored proc / function creation
-            "PROCEDURE", "FUNCTION", "TRIGGER", "VIEW",
-            // Transaction control (scripts should be read-only)
-            "COMMIT", "ROLLBACK", "BEGIN TRANSACTION", "BEGIN TRAN",
-            // Temp tables
-            "INTO #",  "SELECT INTO",
-            // Cursor / waiting
-            "WAITFOR",
-            // Dynamic SQL
-            "sp_executesql", "xp_cmdshell", "OPENROWSET", "OPENDATASOURCE",
-            "OPENQUERY", "BULK INSERT"
-        };
-
-        /// <summary>
-        /// Parameters we allow scripts to reference.
-        /// </summary>
-        private static readonly string[] AllowedParameters = { "@DateFrom", "@DateTo" };
-
-        public class ValidationResult
-        {
-            public bool IsValid => Errors.Count == 0;
-            public List<string> Errors { get; } = new();
-        }
-
-        /// <summary>
-        /// Validates the SQL text. Returns a result with a list of errors
-        /// if the script is unsafe to save or run.
-        /// </summary>
-        public static ValidationResult Validate(string sqlText)
-        {
-            var result = new ValidationResult();
+            var errors = new List<string>();
 
             if (string.IsNullOrWhiteSpace(sqlText))
             {
-                result.Errors.Add("The script is empty.");
-                return result;
+                errors.Add("The script is empty.");
+                return (false, errors);
             }
 
-            var trimmed = sqlText.Trim();
+            // Use the SQL Server 2019 parser (or latest)
+            var parser = new TSql150Parser(initialQuotedIdentifiers: true);
+            using var reader = new StringReader(sqlText);
 
-            // 1. Must start with SELECT (or WITH ... SELECT for CTEs)
-            if (!StartsWithSelectOrCte(trimmed))
+            var fragment = parser.Parse(reader, out IList<ParseError> parseErrors);
+
+            // 1. Check for syntax errors
+            if (parseErrors.Any())
             {
-                result.Errors.Add(
-                    "The script must start with SELECT (or WITH ... SELECT for CTEs). " +
-                    "Only read-only queries are allowed.");
-            }
-
-            // 2. Strip comments and strings so keyword checks don't false-positive
-            var stripped = StripCommentsAndStrings(trimmed);
-
-            // 3. Check forbidden keywords
-            var upper = stripped.ToUpperInvariant();
-            foreach (var keyword in ForbiddenKeywords)
-            {
-                var pattern = keyword.EndsWith(" ")
-                    ? Regex.Escape(keyword)
-                    : $@"\b{Regex.Escape(keyword)}\b";
-
-                if (Regex.IsMatch(upper, pattern))
+                foreach (var err in parseErrors)
                 {
-                    result.Errors.Add(
-                        $"Forbidden keyword detected: '{keyword.Trim()}'. " +
-                        "Only SELECT queries are permitted.");
+                    errors.Add($"Syntax Error (Line {err.Line}, Col {err.Column}): {err.Message}");
                 }
+                return (false, errors);
             }
 
-            // 4. Check for multiple statements (semicolon followed by more SQL)
-            if (HasMultipleStatements(stripped))
+            // 2. Use a Visitor to ensure ONLY SELECT is used
+            var visitor = new SelectOnlyVisitor();
+            fragment.Accept(visitor);
+
+            if (visitor.HasForbiddenStatement)
             {
-                result.Errors.Add(
-                    "Multiple statements detected. The script must contain only one SELECT statement.");
+                errors.Add("Only SELECT statements are allowed. DML, DDL, and EXEC are blocked.");
+                return (false, errors);
             }
 
-            // 5. Check that referenced parameters are allowed
-            var referencedParams = ExtractParameters(stripped);
-            foreach (var param in referencedParams)
-            {
-                if (!AllowedParameters.Contains(param, StringComparer.OrdinalIgnoreCase))
-                {
-                    result.Errors.Add(
-                        $"Unsupported parameter '{param}'. " +
-                        $"Only {string.Join(" and ", AllowedParameters)} are allowed.");
-                }
-            }
-
-            return result;
+            return (true, errors);
         }
+    }
 
-        /// <summary>
-        /// Convenience: throws an exception if the script is not valid.
-        /// </summary>
-        public static void ValidateOrThrow(string sqlText)
+    // The Visitor class that walks the AST and flags bad nodes
+    public class SelectOnlyVisitor : TSqlFragmentVisitor
+    {
+        public bool HasForbiddenStatement { get; private set; }
+
+        public override void Visit(SelectStatement node)
         {
-            var result = Validate(sqlText);
-            if (!result.IsValid)
-            {
-                throw new InvalidOperationException(
-                    "Script validation failed:\n" + string.Join("\n", result.Errors));
-            }
+            // This is allowed.
+            base.Visit(node);
         }
 
-        // ============================================
-        // HELPERS
-        // ============================================
+        // Block INSERT, UPDATE, DELETE, MERGE
+        public override void Visit(InsertStatement node) { HasForbiddenStatement = true; }
+        public override void Visit(UpdateStatement node) { HasForbiddenStatement = true; }
+        public override void Visit(DeleteStatement node) { HasForbiddenStatement = true; }
+        public override void Visit(MergeStatement node) { HasForbiddenStatement = true; }
 
-        private static bool StartsWithSelectOrCte(string sql)
-        {
-            var upper = sql.TrimStart().ToUpperInvariant();
-            return upper.StartsWith("SELECT") || upper.StartsWith("WITH");
-        }
+        // Block DDL
+        public override void Visit(CreateTableStatement node) { HasForbiddenStatement = true; }
+        public override void Visit(DropTableStatement node) { HasForbiddenStatement = true; }
 
-        /// <summary>
-        /// Removes single-line comments, block comments, and string literals.
-        /// This prevents keyword checks from triggering on harmless content.
-        /// </summary>
-        private static string StripCommentsAndStrings(string sql)
-        {
-            // Remove block comments /* ... */
-            sql = Regex.Replace(sql, @"/\*.*?\*/", " ", RegexOptions.Singleline);
+        // Block EXEC / Stored Procedures
+        public override void Visit(ExecuteStatement node) { HasForbiddenStatement = true; }
 
-            // Remove single-line comments -- ...
-            sql = Regex.Replace(sql, @"--[^\r\n]*", " ");
-
-            // Replace string literals '...' with a placeholder (handles escaped '')
-            sql = Regex.Replace(sql, @"'(?:[^']|'')*'", "''");
-
-            return sql;
-        }
-
-        /// <summary>
-        /// Detects multiple SQL statements by looking for a semicolon
-        /// followed by any non-whitespace, non-comment content.
-        /// </summary>
-        private static bool HasMultipleStatements(string sql)
-        {
-            // A single trailing semicolon is fine; anything after is not.
-            var trimmed = sql.TrimEnd();
-            if (trimmed.EndsWith(";"))
-                trimmed = trimmed.Substring(0, trimmed.Length - 1);
-
-            // Now check if there's still a semicolon
-            int idx = trimmed.IndexOf(';');
-            if (idx < 0) return false;
-
-            // Is there non-whitespace after the semicolon?
-            var after = trimmed.Substring(idx + 1).Trim();
-            return after.Length > 0;
-        }
-
-        /// <summary>
-        /// Extracts all SQL parameter references (starting with @).
-        /// </summary>
-        private static List<string> ExtractParameters(string sql)
-        {
-            var matches = Regex.Matches(sql, @"@[A-Za-z_][A-Za-z0-9_]*");
-            return matches
-                .Cast<Match>()
-                .Select(m => m.Value)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
+        // Block SELECT INTO (which creates a table)
+        public override void Visit(SelectIntoStatement node) { HasForbiddenStatement = true; }
     }
 }

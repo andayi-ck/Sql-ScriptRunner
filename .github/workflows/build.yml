@@ -14,11 +14,11 @@ jobs:
     steps:
       # 1. Checkout code
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # 2. Setup .NET 10
       - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
 
@@ -48,7 +48,7 @@ jobs:
 
       # 8. Upload the app publish folder (for debugging)
       - name: Upload app publish folder
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: KabarakScriptRunnerApp-publish
           path: KabarakScriptRunnerApp/bin/Release/net10.0-windows/win-x64/publish

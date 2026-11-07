@@ -2,6 +2,7 @@
 using System.Windows;
 using KabarakScriptRunner.Data.Repositories;
 using KabarakScriptRunner.Data.Models;
+using Serilog; // F-07 Fix
 
 namespace KabarakScriptRunnerApp
 {
@@ -16,41 +17,29 @@ namespace KabarakScriptRunnerApp
             _scriptRepository = scriptRepository;
             Loaded += async (_, _) => await LoadDepartmentsAsync();
 
-            // Reset validation status when the user types
             txtSqlText.TextChanged += (_, _) => { _isSyntaxValidated = false; btnSave.IsEnabled = false; lblValidationStatus.Text = ""; };
         }
 
         private async System.Threading.Tasks.Task LoadDepartmentsAsync()
         {
-            var departments = await _scriptRepository.GetDepartmentsAsync();
-            cmbDepartment.ItemsSource = departments;
-            cmbDepartment.SelectedIndex = 0;
+            try
+            {
+                var departments = await _scriptRepository.GetDepartmentsAsync();
+                cmbDepartment.ItemsSource = departments;
+                if (cmbDepartment.Items.Count > 0) cmbDepartment.SelectedIndex = 0;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to load departments in Script Editor");
+            }
         }
 
-        private async void btnTestSyntax_Click(object sender, RoutedEventArgs e)
+        private void btnTestSyntax_Click(object sender, RoutedEventArgs e)
         {
             var sql = txtSqlText.Text.Trim();
-            if (string.IsNullOrWhiteSpace(sql))
-            {
-                lblValidationStatus.Text = "SQL is empty.";
-                lblValidationStatus.Foreground = System.Windows.Media.Brushes.Red;
-                return;
-            }
 
-            lblValidationStatus.Text = "Validating...";
-            lblValidationStatus.Foreground = System.Windows.Media.Brushes.Gray;
-
-            // Run the static ScriptValidator first (blocks dangerous keywords)
-            var staticResult = KabarakScriptRunner.Core.Services.ScriptValidator.Validate(sql);
-            if (!staticResult.IsValid)
-            {
-                lblValidationStatus.Text = "❌ Blocked: " + string.Join(", ", staticResult.Errors);
-                lblValidationStatus.Foreground = System.Windows.Media.Brushes.Red;
-                return;
-            }
-
-            // If it passes the static check, test the actual SQL syntax against the database
-            var (isValid, error) = await _scriptRepository.ValidateSqlSyntaxAsync(sql);
+            // Use the new local parser
+            var (isValid, errors) = KabarakScriptRunner.Core.Services.ScriptValidator.Validate(sql);
 
             if (isValid)
             {
@@ -61,10 +50,38 @@ namespace KabarakScriptRunnerApp
             }
             else
             {
-                lblValidationStatus.Text = "❌ Syntax Error: " + error;
+                // Note: The parser errors are safe to show because they are generic syntax errors, not DB schema leaks.
+                lblValidationStatus.Text = "❌ Error: " + string.Join("\n", errors);
                 lblValidationStatus.Foreground = System.Windows.Media.Brushes.Red;
                 _isSyntaxValidated = false;
                 btnSave.IsEnabled = false;
+            }
+        }
+
+        private void txtSqlText_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            var lineCount = txtSqlText.LineCount;
+            if (lineCount < 1) lineCount = 1;
+
+            var numbers = string.Join("\n", System.Linq.Enumerable.Range(1, lineCount));
+            txtLineNumbers.Text = numbers;
+
+            lblCharCount.Text = $"{txtSqlText.Text.Length} characters";
+
+            _isSyntaxValidated = false;
+            btnSave.IsEnabled = false;
+            lblValidationStatus.Text = "";
+        }
+
+        private void txtSqlText_ScrollChanged(object sender, System.Windows.Controls.ScrollChangedEventArgs e)
+        {
+            if (e.VerticalChange != 0)
+            {
+                var scrollViewer = (System.Windows.Controls.ScrollViewer)e.OriginalSource;
+                if (scrollViewer.Name == "PART_ContentHost")
+                {
+                    // Scroll sync logic if needed
+                }
             }
         }
 
@@ -85,6 +102,13 @@ namespace KabarakScriptRunnerApp
 
             try
             {
+                var (isDuplicate, reason) = await _scriptRepository.CheckScriptDuplicateAsync(name, txtSqlText.Text.Trim());
+                if (isDuplicate)
+                {
+                    MessageBox.Show($"Duplicate Script Detected:\n\n{reason}", "Duplicate Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
                 var dept = cmbDepartment.SelectedItem as Department;
                 var targetDb = (cmbTargetDatabase.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString() ?? "SQLServer";
 
@@ -105,7 +129,11 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to save script:\n\n{ex.Message}", "Save Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                // F-07 Fix: Log the real error for you, show a safe message to the user
+                Log.Error(ex, "Failed to save script: {ScriptName}", name);
+                MessageBox.Show(
+                    "An error occurred while saving the script. Please check your SQL syntax or contact the administrator.",
+                    "Save Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
