@@ -52,11 +52,10 @@ namespace KabarakScriptRunner.Core.Services
     {
         public bool HasForbiddenStatement { get; private set; }
 
+        // We ONLY allow SelectStatement. Everything else is blocked by default.
         public override void Visit(SelectStatement node)
         {
-            // Block SELECT INTO (which creates a table).
-            // In ScriptDom, SELECT INTO is represented as a SelectStatement 
-            // where the Into property is not null.
+            // Block SELECT INTO (which creates a table)
             if (node.Into != null)
             {
                 HasForbiddenStatement = true;
@@ -65,26 +64,23 @@ namespace KabarakScriptRunner.Core.Services
             base.Visit(node);
         }
 
+        // Block OPENROWSET and OPENQUERY (which can connect to external servers)
+        public override void Visit(OpenRowsetTableReference node) { HasForbiddenStatement = true; }
+        public override void Visit(OpenQueryTableReference node) { HasForbiddenStatement = true; }
+
+        // Block any EXEC or Stored Procedure call
+        public override void Visit(ExecuteStatement node) { HasForbiddenStatement = true; }
+
         // Block INSERT, UPDATE, DELETE, MERGE
         public override void Visit(InsertStatement node) { HasForbiddenStatement = true; }
         public override void Visit(UpdateStatement node) { HasForbiddenStatement = true; }
         public override void Visit(DeleteStatement node) { HasForbiddenStatement = true; }
         public override void Visit(MergeStatement node) { HasForbiddenStatement = true; }
 
-        // Block DDL
+        // Block DDL (CREATE, DROP, ALTER, TRUNCATE)
         public override void Visit(CreateTableStatement node) { HasForbiddenStatement = true; }
         public override void Visit(DropTableStatement node) { HasForbiddenStatement = true; }
-        public override void Visit(TruncateTableStatement node) { HasForbiddenStatement = true; }
         public override void Visit(AlterTableStatement node) { HasForbiddenStatement = true; }
-        public override void Visit(CreateProcedureStatement node) { HasForbiddenStatement = true; }
-        public override void Visit(GrantStatement node) { HasForbiddenStatement = true; }
-
-        // Block DBCC, BACKUP, RESTORE
-        
-        public override void Visit(BackupStatement node) { HasForbiddenStatement = true; }
-        public override void Visit(RestoreStatement node) { HasForbiddenStatement = true; }
-
-        // Block EXEC / Stored Procedures
-        public override void Visit(ExecuteStatement node) { HasForbiddenStatement = true; }
+        public override void Visit(TruncateTableStatement node) { HasForbiddenStatement = true; }
     }
 }
