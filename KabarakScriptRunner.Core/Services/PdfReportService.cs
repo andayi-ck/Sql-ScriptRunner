@@ -48,7 +48,7 @@ namespace KabarakScriptRunner.Core.Services
                 {
                     page.Size(PageSizes.A4.Landscape());
                     page.Margin(24);
-                    page.DefaultTextStyle(t => t.FontSize(9).FontFamily("Lato"));
+                    page.DefaultTextStyle(t => t.FontSize(9).FontFamily("Arial"));
 
                     page.Header().Element(header => ComposeHeader(header, reportTitle, subtitle, generatedBy));
 
@@ -97,7 +97,7 @@ namespace KabarakScriptRunner.Core.Services
                 {
                     page.Size(PageSizes.A4.Portrait());
                     page.Margin(30);
-                    page.DefaultTextStyle(t => t.FontSize(10).FontFamily("Lato"));
+                    page.DefaultTextStyle(t => t.FontSize(10).FontFamily("Arial"));
 
                     page.Header().Element(h =>
                         ComposeHeader(h, "Kabarak Script Runner — Dashboard Summary",

@@ -3,7 +3,7 @@ using KabarakScriptRunner.Data.Models;
 
 namespace KabarakScriptRunnerApp.Validation
 {
-    public class ChangePasswordValidator : AbstractValidator<(User? User, string NewPassword, string ConfirmPassword)>
+    public class ChangePasswordValidator : AbstractValidator<(UserSummary? User, string NewPassword, string ConfirmPassword)>
     {
         public ChangePasswordValidator()
         {

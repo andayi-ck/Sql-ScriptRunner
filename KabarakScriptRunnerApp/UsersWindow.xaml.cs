@@ -69,7 +69,8 @@ namespace KabarakScriptRunnerApp
 
         private async void btnToggle_Click(object sender, RoutedEventArgs e)
         {
-            if (dgUsers.SelectedItem is not User selected)
+            // FIXED: Changed 'User' to 'UserSummary'
+            if (dgUsers.SelectedItem is not UserSummary selected)
             {
                 MessageBox.Show("Please select a user to activate or deactivate.",
                     "No Selection", MessageBoxButton.OK, MessageBoxImage.Warning);

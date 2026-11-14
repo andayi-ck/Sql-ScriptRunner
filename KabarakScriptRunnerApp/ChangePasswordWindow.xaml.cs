@@ -40,7 +40,7 @@ namespace KabarakScriptRunnerApp
         {
             lblError.Text = "";
 
-            var user = cmbUser.SelectedItem as User;
+            var user = cmbUser.SelectedItem as UserSummary;
             var newPwd = txtNew.Password;
             var confirm = txtConfirm.Password;
 

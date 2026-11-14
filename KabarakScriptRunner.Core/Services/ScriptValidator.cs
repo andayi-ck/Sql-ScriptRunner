@@ -74,6 +74,15 @@ namespace KabarakScriptRunner.Core.Services
         // Block DDL
         public override void Visit(CreateTableStatement node) { HasForbiddenStatement = true; }
         public override void Visit(DropTableStatement node) { HasForbiddenStatement = true; }
+        public override void Visit(TruncateTableStatement node) { HasForbiddenStatement = true; }
+        public override void Visit(AlterTableStatement node) { HasForbiddenStatement = true; }
+        public override void Visit(CreateProcedureStatement node) { HasForbiddenStatement = true; }
+        public override void Visit(GrantStatement node) { HasForbiddenStatement = true; }
+
+        // Block DBCC, BACKUP, RESTORE
+        
+        public override void Visit(BackupStatement node) { HasForbiddenStatement = true; }
+        public override void Visit(RestoreStatement node) { HasForbiddenStatement = true; }
 
         // Block EXEC / Stored Procedures
         public override void Visit(ExecuteStatement node) { HasForbiddenStatement = true; }
