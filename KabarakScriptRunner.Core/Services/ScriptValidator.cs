@@ -17,7 +17,7 @@ namespace KabarakScriptRunner.Core.Services
                 return (false, errors);
             }
 
-            // Use the SQL Server 2019 parser (or latest)
+            // Use the SQL Server 2019 parser
             var parser = new TSql150Parser(initialQuotedIdentifiers: true);
             using var reader = new StringReader(sqlText);
 
@@ -33,26 +33,52 @@ namespace KabarakScriptRunner.Core.Services
                 return (false, errors);
             }
 
-            // 2. Use a Visitor to ensure ONLY SELECT is used
-            var visitor = new SelectOnlyVisitor();
-            fragment.Accept(visitor);
-
-            if (visitor.HasForbiddenStatement)
+            // 2. Allow-list check: We only accept a TSqlScript that is purely a SELECT
+            if (fragment is not TSqlScript script)
             {
-                errors.Add("Only SELECT statements are allowed. DML, DDL, and EXEC are blocked.");
+                errors.Add("Could not parse the SQL script.");
                 return (false, errors);
+            }
+
+            // A script can contain multiple batches. We check every batch.
+            foreach (var batch in script.Batches)
+            {
+                // A batch must contain exactly one statement
+                if (batch.Statements.Count != 1)
+                {
+                    errors.Add("Only a single SELECT statement is allowed.");
+                    return (false, errors);
+                }
+
+                var statement = batch.Statements[0];
+
+                // Check if the statement is a SelectStatement
+                if (statement is not SelectStatement)
+                {
+                    errors.Add("Only SELECT statements are allowed. DML, DDL, and EXEC are blocked.");
+                    return (false, errors);
+                }
+
+                // Even if it's a SelectStatement, we check for dangerous sub-features
+                var visitor = new SelectOnlyVisitor();
+                statement.Accept(visitor);
+
+                if (visitor.HasForbiddenStatement)
+                {
+                    errors.Add("The query contains forbidden operations (SELECT INTO, OPENROWSET, OPENQUERY, EXEC).");
+                    return (false, errors);
+                }
             }
 
             return (true, errors);
         }
     }
 
-    // The Visitor class that walks the AST and flags bad nodes
+    // The Visitor class that walks the AST and flags bad nodes inside a SELECT
     public class SelectOnlyVisitor : TSqlFragmentVisitor
     {
         public bool HasForbiddenStatement { get; private set; }
 
-        // We ONLY allow SelectStatement. Everything else is blocked by default.
         public override void Visit(SelectStatement node)
         {
             // Block SELECT INTO (which creates a table)
@@ -68,19 +94,7 @@ namespace KabarakScriptRunner.Core.Services
         public override void Visit(OpenRowsetTableReference node) { HasForbiddenStatement = true; }
         public override void Visit(OpenQueryTableReference node) { HasForbiddenStatement = true; }
 
-        // Block any EXEC or Stored Procedure call
+        // Block any EXEC or Stored Procedure call (in case someone sneaks it in)
         public override void Visit(ExecuteStatement node) { HasForbiddenStatement = true; }
-
-        // Block INSERT, UPDATE, DELETE, MERGE
-        public override void Visit(InsertStatement node) { HasForbiddenStatement = true; }
-        public override void Visit(UpdateStatement node) { HasForbiddenStatement = true; }
-        public override void Visit(DeleteStatement node) { HasForbiddenStatement = true; }
-        public override void Visit(MergeStatement node) { HasForbiddenStatement = true; }
-
-        // Block DDL (CREATE, DROP, ALTER, TRUNCATE)
-        public override void Visit(CreateTableStatement node) { HasForbiddenStatement = true; }
-        public override void Visit(DropTableStatement node) { HasForbiddenStatement = true; }
-        public override void Visit(AlterTableStatement node) { HasForbiddenStatement = true; }
-        public override void Visit(TruncateTableStatement node) { HasForbiddenStatement = true; }
     }
 }
