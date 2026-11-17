@@ -6,7 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using KabarakScriptRunner.Core.Services;
 using KabarakScriptRunner.Data.Repositories;
-using Serilog; // F-07 Fix
+using Serilog;
 
 namespace KabarakScriptRunnerApp
 {
@@ -14,6 +14,14 @@ namespace KabarakScriptRunnerApp
     {
         private readonly ScriptRepository _scriptRepository;
         private readonly DashboardRepository _dashboardRepository;
+
+        // NEW: A simple class to hold the User data for the ComboBox
+        public class UserDropdownItem
+        {
+            public string UserId { get; set; } = "";
+            public string DisplayName { get; set; } = "";
+            public override string ToString() => DisplayName; // This fixes the display issue!
+        }
 
         public AccessLogWindow(ScriptRepository scriptRepository, DashboardRepository dashboardRepository)
         {
@@ -27,17 +35,17 @@ namespace KabarakScriptRunnerApp
         {
             try
             {
-                // F-10 Fix: Use UserSummary instead of User
                 var users = (await _scriptRepository.GetAllUsersAsync()).ToList();
 
-                var userList = new System.Collections.Generic.List<object>
+                // Use the new UserDropdownItem class
+                var userList = new System.Collections.Generic.List<UserDropdownItem>
                 {
-                    new { UserId = "", DisplayName = "(All Users)" } // Placeholder
+                    new UserDropdownItem { UserId = "", DisplayName = "(All Users)" }
                 };
 
                 foreach (var u in users)
                 {
-                    userList.Add(new { UserId = u.UserId, DisplayName = $"{u.DisplayName} ({u.UserId})" });
+                    userList.Add(new UserDropdownItem { UserId = u.UserId, DisplayName = $"{u.DisplayName} ({u.UserId})" });
                 }
 
                 cmbUser.ItemsSource = userList;
@@ -52,7 +60,6 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                // F-07 Fix: Log real, show generic
                 Log.Error(ex, "Failed to initialize Access Log Window");
                 MessageBox.Show("Failed to load initial data. Please try again.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
@@ -73,14 +80,10 @@ namespace KabarakScriptRunnerApp
             try
             {
                 string? userId = null;
-                var selectedItem = cmbUser.SelectedItem;
+                var selectedItem = cmbUser.SelectedItem as UserDropdownItem;
                 if (selectedItem != null)
                 {
-                    var prop = selectedItem.GetType().GetProperty("UserId");
-                    if (prop != null)
-                    {
-                        userId = prop.GetValue(selectedItem, null) as string;
-                    }
+                    userId = selectedItem.UserId;
                 }
 
                 var status = (cmbStatus.SelectedItem as ComboBoxItem)?.Content?.ToString();
@@ -236,13 +239,8 @@ namespace KabarakScriptRunnerApp
 
                 if (tabLogs.SelectedIndex == 0) // Script Runs
                 {
-                    var userId = (cmbUser.SelectedItem as KabarakScriptRunner.Data.Models.User)?.UserId; // Note: This might need to be UserSummary if the cast fails
-                    // F-10 Fix: We need to safely get the UserId from the anonymous object now
-                    if (cmbUser.SelectedItem != null)
-                    {
-                        var prop = cmbUser.SelectedItem.GetType().GetProperty("UserId");
-                        if (prop != null) userId = prop.GetValue(cmbUser.SelectedItem, null) as string;
-                    }
+                    var selectedItem = cmbUser.SelectedItem as UserDropdownItem;
+                    var userId = selectedItem?.UserId;
 
                     var status = (cmbStatus.SelectedItem as ComboBoxItem)?.Content?.ToString();
                     if (status == "(All)") status = null;

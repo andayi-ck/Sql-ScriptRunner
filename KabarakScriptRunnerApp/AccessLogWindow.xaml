@@ -38,7 +38,8 @@
                 <DatePicker x:Name="dtpTo" Grid.Column="3" Width="120" Height="32" Margin="0,0,12,0"/>
 
                 <TextBlock Grid.Column="4" Text="User:" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                <ComboBox x:Name="cmbUser" Grid.Column="5" Width="200" Height="32" Margin="0,0,12,0" DisplayMemberPath="DisplayName" SelectedValuePath="UserId"/>
+                <ComboBox x:Name="cmbUser" Grid.Column="5" Width="140" Height="26" Margin="0,0,12,0"
+                          DisplayMemberPath="DisplayName" SelectedValuePath="UserId"/>
 
                 <TextBlock Grid.Column="6" Text="Status:" VerticalAlignment="Center" Margin="0,0,6,0"/>
                 <ComboBox x:Name="cmbStatus" Grid.Column="7" Width="100" Height="32" Margin="0,0,12,0">
