@@ -15,6 +15,11 @@ namespace KabarakScriptRunnerApp
         private readonly ScriptRepository _scriptRepository;
         private readonly DashboardRepository _dashboardRepository;
 
+        // CN-04b: Monotonic generation counter shared by all three tab loaders.
+        // Rapid tab switches / filter changes can start overlapping loads; only
+        // the most recent one is allowed to write UI state.
+        private int _loadGeneration;
+
         // NEW: A simple class to hold the User data for the ComboBox
         public class UserDropdownItem
         {
@@ -67,15 +72,27 @@ namespace KabarakScriptRunnerApp
 
         private async Task LoadActiveTabAsync()
         {
+            // CN-04b: Capture the generation once for this logical "load the active
+            // tab" action, then hand it to the specific loader. This means a
+            // btnClear_Click that fires cmbActionType_SelectionChanged *and* then
+            // calls LoadActiveTabAsync only lets the later of the two writes win.
+            int generation = ++_loadGeneration;
+
             if (tabLogs.SelectedIndex == 0)
-                await LoadScriptRunsAsync();
+                await LoadScriptRunsAsync(generation);
             else if (tabLogs.SelectedIndex == 1)
-                await LoadAdminActionsAsync();
+                await LoadAdminActionsAsync(generation);
             else
-                await LoadAnalyticsAsync();
+                await LoadAnalyticsAsync(generation);
         }
 
         private async Task LoadScriptRunsAsync()
+        {
+            // Direct callers (InitializeAsync) start a fresh generation.
+            await LoadScriptRunsAsync(++_loadGeneration);
+        }
+
+        private async Task LoadScriptRunsAsync(int generation)
         {
             try
             {
@@ -91,11 +108,15 @@ namespace KabarakScriptRunnerApp
 
                 var table = await _scriptRepository.GetScriptRunsAsync(dtpFrom.SelectedDate, dtpTo.SelectedDate, userId, status);
 
+                // CN-04b: Stale load — a newer one has already started.
+                if (generation != _loadGeneration) return;
+
                 dgLogs.ItemsSource = table.DefaultView;
                 lblRowCount.Text = $"{table.Rows.Count} script run(s)";
             }
             catch (Exception ex)
             {
+                if (generation != _loadGeneration) return;
                 Log.Error(ex, "Failed to load script runs");
                 MessageBox.Show("Failed to load script runs.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
@@ -103,10 +124,18 @@ namespace KabarakScriptRunnerApp
 
         private async Task LoadAdminActionsAsync()
         {
+            await LoadAdminActionsAsync(++_loadGeneration);
+        }
+
+        private async Task LoadAdminActionsAsync(int generation)
+        {
             try
             {
                 var table = await _scriptRepository.GetAdminActionsAsync(dtpFrom.SelectedDate, dtpTo.SelectedDate);
                 var selected = (cmbActionType?.SelectedItem as ComboBoxItem)?.Content?.ToString();
+
+                // CN-04b: Stale load — a newer one has already started.
+                if (generation != _loadGeneration) return;
 
                 if (selected != null && selected != "(All)" && table.Rows.Count > 0)
                 {
@@ -126,6 +155,7 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
+                if (generation != _loadGeneration) return;
                 Log.Error(ex, "Failed to load admin actions");
                 MessageBox.Show("Failed to load admin actions.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
@@ -133,9 +163,19 @@ namespace KabarakScriptRunnerApp
 
         private async Task LoadAnalyticsAsync()
         {
+            await LoadAnalyticsAsync(++_loadGeneration);
+        }
+
+        private async Task LoadAnalyticsAsync(int generation)
+        {
             try
             {
                 var loginsPerDay = (await _dashboardRepository.GetLoginsPerDayAsync(30)).ToList();
+
+                // CN-04b: Check after each await — a tab switch mid-load must not
+                // write charts from the previous tab's data.
+                if (generation != _loadGeneration) return;
+
                 chartLogins.Series = new LiveChartsCore.ISeries[]
                 {
                     new LiveChartsCore.SkiaSharpView.LineSeries<int>
@@ -150,6 +190,9 @@ namespace KabarakScriptRunnerApp
                 chartLogins.XAxes = new[] { new LiveChartsCore.SkiaSharpView.Axis { Labels = loginsPerDay.Select(x => x.Period).ToArray(), LabelsRotation = 45, TextSize = 10 } };
 
                 var stats = await _dashboardRepository.GetLoginStatsAsync(30);
+
+                if (generation != _loadGeneration) return;
+
                 chartLoginPie.Series = new LiveChartsCore.ISeries[]
                 {
                     new LiveChartsCore.SkiaSharpView.PieSeries<int>
@@ -167,6 +210,9 @@ namespace KabarakScriptRunnerApp
                 chartLoginPie.LegendTextSize = 11;
 
                 var topScripts = (await _dashboardRepository.GetTopScriptsByRunsAsync(10)).ToList();
+
+                if (generation != _loadGeneration) return;
+
                 chartTopScripts.Series = new LiveChartsCore.ISeries[]
                 {
                     new LiveChartsCore.SkiaSharpView.RowSeries<int>
@@ -183,6 +229,9 @@ namespace KabarakScriptRunnerApp
                 chartTopScripts.YAxes = new[] { new LiveChartsCore.SkiaSharpView.Axis { Labels = topScripts.Select(x => x.Label).ToArray(), TextSize = 10 } };
 
                 var actionsByUser = (await _dashboardRepository.GetActionsByUserAsync(30)).ToList();
+
+                if (generation != _loadGeneration) return;
+
                 chartActionsByUser.Series = new LiveChartsCore.ISeries[]
                 {
                     new LiveChartsCore.SkiaSharpView.RowSeries<int>
@@ -197,6 +246,7 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
+                if (generation != _loadGeneration) return;
                 Log.Error(ex, "Failed to load analytics");
                 MessageBox.Show("Failed to load analytics.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
@@ -211,6 +261,9 @@ namespace KabarakScriptRunnerApp
         private async void cmbActionType_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!IsLoaded) return;
+            // CN-04b: This fires during btnClear_Click. Starting a fresh generation
+            // here means the LoadActiveTabAsync() call inside btnClear_Click will
+            // supersede this one — the later load wins, as intended.
             await LoadAdminActionsAsync();
         }
 

@@ -30,7 +30,9 @@ BEGIN
         DisplayName  NVARCHAR(150) NOT NULL,
         PasswordHash NVARCHAR(256) NOT NULL,
         IsAdmin      BIT           NOT NULL DEFAULT 0,
-        IsActive     BIT           NOT NULL DEFAULT 1
+        IsActive     BIT           NOT NULL DEFAULT 1,
+        FailedAttempts INT         NOT NULL DEFAULT 0,
+        LockoutEnd   DATETIME2     NULL
     );
 END
 GO
@@ -45,7 +47,8 @@ BEGIN
         Category      NVARCHAR(50)  NULL,
         NeedsDateFrom BIT NOT NULL DEFAULT 1,
         NeedsDateTo   BIT NOT NULL DEFAULT 1,
-        IsActive      BIT NOT NULL DEFAULT 1
+        IsActive      BIT NOT NULL DEFAULT 1,
+        TargetDatabase NVARCHAR(20) NOT NULL DEFAULT 'SQLServer'
     );
 END
 GO
@@ -71,7 +74,7 @@ BEGIN
         StartedAt    DATETIME2    NOT NULL,
         FinishedAt   DATETIME2    NULL,
         Status       NVARCHAR(20) NOT NULL,
-        RowsAffected     INT          NULL,
+        RowsAffected INT          NULL,
         OutputPath   NVARCHAR(400) NULL,
         DateFrom     DATE NULL,
         DateTo       DATE NULL,
@@ -105,15 +108,15 @@ GO
 -- 5. Seed default admin user (PasswordHash is a placeholder for now)
 IF NOT EXISTS (SELECT 1 FROM app.Users WHERE UserId = 'admin')
 BEGIN
-    INSERT INTO app.Users (UserId, DisplayName, PasswordHash, IsAdmin)
-    VALUES ('admin', 'System Administrator', 'PLACEHOLDER_HASH', 1);
+    INSERT INTO app.Users (UserId, DisplayName, PasswordHash, IsAdmin, FailedAttempts, LockoutEnd)
+    VALUES ('admin', 'System Administrator', 'PLACEHOLDER_HASH', 1, 0, NULL);
 END
 GO
 
 -- 6. Seed one sample script
 IF NOT EXISTS (SELECT 1 FROM app.Scripts WHERE Name = 'Student Enrolment Report')
 BEGIN
-    INSERT INTO app.Scripts (Name, Description, SqlText, Category, NeedsDateFrom, NeedsDateTo)
+    INSERT INTO app.Scripts (Name, Description, SqlText, Category, TargetDatabase, NeedsDateFrom, NeedsDateTo)
     VALUES (
         'Student Enrolment Report',
         'Lists all students enrolled in a given date range',
@@ -121,6 +124,7 @@ BEGIN
          FROM uni.Students
          WHERE EnrolmentDate BETWEEN @DateFrom AND @DateTo',
         'Registry',
+        'SQLServer',
         1,
         1
     );
@@ -153,6 +157,33 @@ GO
 IF NOT EXISTS (SELECT 1 FROM app.Settings WHERE [Key] = 'OutputFolder')
 BEGIN
     INSERT INTO app.Settings ([Key], [Value]) VALUES ('OutputFolder', 'C:\KabarakExports');
+END
+GO
+
+-- ============================================
+-- 10. SAFE MIGRATION: Add missing columns to existing databases
+-- ============================================
+-- This part is safe to run on a database that already has data.
+-- It will only add the columns if they don't exist yet.
+
+IF COL_LENGTH('app.Scripts', 'TargetDatabase') IS NULL
+BEGIN
+    ALTER TABLE app.Scripts ADD TargetDatabase NVARCHAR(20) NOT NULL DEFAULT 'SQLServer';
+    PRINT 'Added TargetDatabase column to app.Scripts.';
+END
+GO
+
+IF COL_LENGTH('app.Users', 'FailedAttempts') IS NULL
+BEGIN
+    ALTER TABLE app.Users ADD FailedAttempts INT NOT NULL DEFAULT 0;
+    PRINT 'Added FailedAttempts column to app.Users.';
+END
+GO
+
+IF COL_LENGTH('app.Users', 'LockoutEnd') IS NULL
+BEGIN
+    ALTER TABLE app.Users ADD LockoutEnd DATETIME2 NULL;
+    PRINT 'Added LockoutEnd column to app.Users.';
 END
 GO
 

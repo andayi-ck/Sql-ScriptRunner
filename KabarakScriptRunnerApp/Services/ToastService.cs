@@ -59,7 +59,9 @@ namespace KabarakScriptRunnerApp.Services
             if (app.Dispatcher.CheckAccess())
                 Open();
             else
-                app.Dispatcher.Invoke(Open);
+                // CN-07: BeginInvoke posts instead of blocking. Prevents a deadlock
+                // if ToastService is ever called from a background thread.
+                app.Dispatcher.BeginInvoke(Open);
         }
     }
 }

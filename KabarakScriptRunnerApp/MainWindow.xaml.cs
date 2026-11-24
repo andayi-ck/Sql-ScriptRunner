@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using Serilog;
 
 namespace KabarakScriptRunnerApp
 {
@@ -21,6 +22,15 @@ namespace KabarakScriptRunnerApp
         private User? _currentUser;
         private Department? _currentDepartment;
         private CancellationTokenSource? _runCts;
+
+        // CN-02: Guards re-entry into btnRun_Click independently of button state.
+        // The button is disabled, but a queued click during modal validation could
+        // still slip through — this bool closes that gap.
+        private bool _isRunning;
+
+        // CN-04: Monotonic generation counter for LoadScriptsAsync. Only the most
+        // recent load is allowed to write UI state; older in-flight loads bail out.
+        private int _scriptsLoadGeneration;
 
         private readonly ObservableCollection<LogEntry> _progressEntries = new();
 
@@ -90,14 +100,21 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
+                Log.Error(ex, "Failed to load initial data");
                 MessageBox.Show($"Error loading data:\n\n{ex.Message}",
                     "Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
+        /// <summary>
+        /// CN-04: Generation-guarded script load. Overlapping loads are safe; only
+        /// the most recent completion is allowed to mutate UI state and _previousScripts.
+        /// </summary>
         private async Task LoadScriptsAsync(bool isManualRefresh = false)
         {
             if (_currentUser == null) return;
+
+            int generation = ++_scriptsLoadGeneration;
 
             try
             {
@@ -105,11 +122,17 @@ namespace KabarakScriptRunnerApp
                 {
                     LoadingOverlay.Visibility = Visibility.Visible;
                     await Task.Delay(500);
+
+                    // If a newer load started while we were sleeping, let it win.
+                    if (generation != _scriptsLoadGeneration) return;
                 }
 
                 var newScripts = (await _scriptRepository.GetScriptsAsync(
                     _currentDepartment?.DepartmentId,
                     _currentUser.IsAdmin)).ToList();
+
+                // Another load finished after us — discard our (now stale) results.
+                if (generation != _scriptsLoadGeneration) return;
 
                 if (isManualRefresh && _previousScripts.Count > 0)
                 {
@@ -124,12 +147,15 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
+                if (generation != _scriptsLoadGeneration) return;
+                Log.Error(ex, "Failed to refresh scripts");
                 MessageBox.Show($"Error refreshing scripts:\n\n{ex.Message}",
                     "Refresh Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
-                if (isManualRefresh)
+                // Only the latest generation is allowed to hide the overlay.
+                if (isManualRefresh && generation == _scriptsLoadGeneration)
                 {
                     LoadingOverlay.Visibility = Visibility.Collapsed;
                 }
@@ -243,7 +269,18 @@ namespace KabarakScriptRunnerApp
         private async Task LogAuditAsync(string userId, string actionType, string? targetType, string? targetId, string? details)
         {
             try { await _scriptRepository.LogAdminActionAsync(userId, actionType, targetType, targetId, details); }
-            catch { }
+            catch (Exception ex) { Log.Warning(ex, "Audit log write failed"); }
+        }
+
+        /// <summary>
+        /// CN-06: Fire-and-forget wrapper that logs failures instead of swallowing
+        /// them silently. The task itself is observed by TaskScheduler.UnobservedTaskException,
+        /// but a log entry is far more useful than a Sentry breadcrumb.
+        /// </summary>
+        private async void SafeFireAndForget(Func<Task> operation, string context)
+        {
+            try { await operation(); }
+            catch (Exception ex) { Log.Warning(ex, "Fire-and-forget operation failed: {Context}", context); }
         }
 
         private void AppendProgress(string message)
@@ -281,7 +318,9 @@ namespace KabarakScriptRunnerApp
                     lblSelectedScript.FontStyle = FontStyles.Normal;
                     lblProgressStatus.Text = $"Ready to run: {script.Name}";
                     if (_currentUser != null)
-                        _ = LogAuditAsync(_currentUser.UserId, "ScriptViewed", "Script", script.ScriptId.ToString(), $"Viewed script '{script.Name}' (v{script.Version}).");
+                        SafeFireAndForget(
+                            () => LogAuditAsync(_currentUser.UserId, "ScriptViewed", "Script", script.ScriptId.ToString(), $"Viewed script '{script.Name}' (v{script.Version})."),
+                            "ScriptViewed audit");
                 }
             }
             else
@@ -311,14 +350,22 @@ namespace KabarakScriptRunnerApp
                 return;
             }
 
-            var scriptList = allScripts.Cast<Script>().ToList();
-            var departments = await _scriptRepository.GetDepartmentsAsync();
-            var finder = new ScriptFinderWindow(scriptList, departments) { Owner = this };
-            if (finder.ShowDialog() == true && finder.SelectedScript != null)
+            try
             {
-                lstScripts.SelectedItem = finder.SelectedScript;
-                lstScripts.ScrollIntoView(finder.SelectedScript);
-                lstScripts.Focus();
+                var scriptList = allScripts.Cast<Script>().ToList();
+                var departments = await _scriptRepository.GetDepartmentsAsync();
+                var finder = new ScriptFinderWindow(scriptList, departments) { Owner = this };
+                if (finder.ShowDialog() == true && finder.SelectedScript != null)
+                {
+                    lstScripts.SelectedItem = finder.SelectedScript;
+                    lstScripts.ScrollIntoView(finder.SelectedScript);
+                    lstScripts.Focus();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Script finder failed");
+                MessageBox.Show("Could not open the script finder.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -334,7 +381,7 @@ namespace KabarakScriptRunnerApp
             if (_currentUser == null || !_currentUser.IsAdmin) return;
             var window = new AssignScriptsWindow(_scriptRepository, _currentUser.UserId) { Owner = this };
             window.ShowDialog();
-            _ = LoadScriptsAsync();
+            SafeFireAndForget(() => LoadScriptsAsync(), "Post-assign refresh");
         }
 
         private void btnBatchExport_Click(object sender, RoutedEventArgs e)
@@ -374,7 +421,7 @@ namespace KabarakScriptRunnerApp
             var editor = new ScriptEditorWindow(_scriptRepository) { Owner = this };
             if (editor.ShowDialog() == true)
             {
-                _ = LoadScriptsAsync(true);
+                SafeFireAndForget(() => LoadScriptsAsync(true), "Post-editor refresh");
             }
         }
 
@@ -383,18 +430,31 @@ namespace KabarakScriptRunnerApp
             await LoadScriptsAsync(true);
         }
 
+        /// <summary>
+        /// CN-02: Never touch the _runCts field across a modal MessageBox.
+        /// Capture it into a local, guard for null/disposed, and swallow the
+        /// ObjectDisposedException that can fire if the run completed while the
+        /// modal was open.
+        /// </summary>
         private void btnCancelRun_Click(object sender, RoutedEventArgs e)
         {
-            if (_runCts == null || _runCts.IsCancellationRequested) return;
+            var cts = _runCts;
+            if (cts == null || cts.IsCancellationRequested) return;
 
             var confirm = MessageBox.Show(
                 "Cancel the currently running query?\n\nAny scripts that have already completed will keep their Excel files.\nThe currently-running script will be aborted.",
                 "Cancel Run", MessageBoxButton.YesNo, MessageBoxImage.Question);
 
-            if (confirm == MessageBoxResult.Yes)
+            if (confirm != MessageBoxResult.Yes) return;
+
+            try
             {
-                _runCts.Cancel();
+                cts.Cancel();
                 AppendProgress("⚠ Cancel requested...");
+            }
+            catch (ObjectDisposedException)
+            {
+                // The run already finished while the modal was open — nothing to do.
             }
         }
 
@@ -406,107 +466,125 @@ namespace KabarakScriptRunnerApp
                 return;
             }
 
-            var selectedScripts = lstScripts.SelectedItems.Cast<Script>().ToList();
-
-            // Check for dialect mismatch before proceeding
-            var mismatchedScripts = selectedScripts.Where(s =>
-                !string.Equals(s.TargetDatabase, App.CurrentDatabaseType, StringComparison.OrdinalIgnoreCase)).ToList();
-
-            if (mismatchedScripts.Any())
-            {
-                var names = string.Join("\n", mismatchedScripts.Select(s => $"• {s.Name} (Written for {s.TargetDatabase})"));
-                MessageBox.Show(
-                    $"The following scripts are not written for the current database ({App.CurrentDatabaseType}):\n\n" +
-                    names + "\n\nPlease select only scripts written for {App.CurrentDatabaseType}.",
-                    "Database Mismatch", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            var outputFolder = txtOutputFolder.Text.Trim();
-            var dateFrom = dtpFrom.SelectedDate;
-            var dateTo = dtpTo.SelectedDate;
-
-            var validator = new ScriptRunValidator();
-            var validationResult = validator.Validate((selectedScripts, outputFolder, dateFrom, dateTo));
-
-            if (!validationResult.IsValid)
-            {
-                var messages = string.Join("\n\n", validationResult.Errors.Select(err => "• " + err.ErrorMessage));
-                MessageBox.Show("Please fix the following before running:\n\n" + messages, "Validation Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
-
-                var firstError = validationResult.Errors.First().PropertyName;
-                switch (firstError)
-                {
-                    case "Scripts": lstScripts.Focus(); break;
-                    case "OutputFolder": txtOutputFolder.Focus(); break;
-                    case "DateFrom": dtpFrom.Focus(); break;
-                    case "DateTo": dtpTo.Focus(); break;
-                }
-                return;
-            }
-
-            System.IO.Directory.CreateDirectory(outputFolder);
-            var dateFromValue = dateFrom!.Value;
-            var dateToValue = dateTo!.Value;
-
-            btnRun.IsEnabled = false;
-            btnRefresh.IsEnabled = false;
-            btnCancelRun.IsEnabled = true;
-
-            _runCts = new CancellationTokenSource();
-            var token = _runCts.Token;
-
-            prgProgress.IsIndeterminate = false;
-            prgProgress.Minimum = 0;
-            prgProgress.Maximum = 100;
-            prgProgress.Value = 0;
-            lblProgressPercent.Text = "0%";
-
-            int total = selectedScripts.Count;
-            int completed = 0, succeeded = 0, failed = 0;
-            bool cancelled = false;
+            // CN-02: Independent re-entry guard. Even with the button disabled,
+            // a queued click during a modal can re-enter this handler.
+            if (_isRunning) return;
+            _isRunning = true;
 
             try
             {
-                foreach (var script in selectedScripts)
+                var selectedScripts = lstScripts.SelectedItems.Cast<Script>().ToList();
+
+                // Check for dialect mismatch before proceeding
+                var mismatchedScripts = selectedScripts.Where(s =>
+                    !string.Equals(s.TargetDatabase, App.CurrentDatabaseType, StringComparison.OrdinalIgnoreCase)).ToList();
+
+                if (mismatchedScripts.Any())
                 {
-                    if (token.IsCancellationRequested) { cancelled = true; AppendProgress("✘ Run cancelled by user."); break; }
-                    lblProgressStatus.Text = $"Running: {script.Name} ({completed + 1} of {total})";
+                    var names = string.Join("\n", mismatchedScripts.Select(s => $"• {s.Name} (Written for {s.TargetDatabase})"));
+                    MessageBox.Show(
+                        $"The following scripts are not written for the current database ({App.CurrentDatabaseType}):\n\n" +
+                        names + $"\n\nPlease select only scripts written for {App.CurrentDatabaseType}.",
+                        "Database Mismatch", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
 
-                    bool ok = await RunOneScriptAsync(script, dateFromValue, dateToValue, outputFolder, token);
-                    completed++;
-                    if (ok) succeeded++; else failed++;
+                var outputFolder = txtOutputFolder.Text.Trim();
+                var dateFrom = dtpFrom.SelectedDate;
+                var dateTo = dtpTo.SelectedDate;
 
-                    double newValue = (double)completed / total * 100.0;
-                    await AnimateProgressBarAsync(prgProgress, newValue);
-                    lblProgressPercent.Text = $"{newValue:0}%";
+                var validator = new ScriptRunValidator();
+                var validationResult = validator.Validate((selectedScripts, outputFolder, dateFrom, dateTo));
+
+                if (!validationResult.IsValid)
+                {
+                    var messages = string.Join("\n\n", validationResult.Errors.Select(err => "• " + err.ErrorMessage));
+                    MessageBox.Show("Please fix the following before running:\n\n" + messages, "Validation Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+                    var firstError = validationResult.Errors.First().PropertyName;
+                    switch (firstError)
+                    {
+                        case "Scripts": lstScripts.Focus(); break;
+                        case "OutputFolder": txtOutputFolder.Focus(); break;
+                        case "DateFrom": dtpFrom.Focus(); break;
+                        case "DateTo": dtpTo.Focus(); break;
+                    }
+                    return;
+                }
+
+                System.IO.Directory.CreateDirectory(outputFolder);
+                var dateFromValue = dateFrom!.Value;
+                var dateToValue = dateTo!.Value;
+
+                btnRun.IsEnabled = false;
+                btnRefresh.IsEnabled = false;
+                btnCancelRun.IsEnabled = true;
+
+                _runCts = new CancellationTokenSource();
+                var token = _runCts.Token;
+
+                prgProgress.IsIndeterminate = false;
+                prgProgress.Minimum = 0;
+                prgProgress.Maximum = 100;
+                prgProgress.Value = 0;
+                lblProgressPercent.Text = "0%";
+
+                int total = selectedScripts.Count;
+                int completed = 0, succeeded = 0, failed = 0;
+                bool cancelled = false;
+
+                try
+                {
+                    foreach (var script in selectedScripts)
+                    {
+                        if (token.IsCancellationRequested) { cancelled = true; AppendProgress("✘ Run cancelled by user."); break; }
+                        lblProgressStatus.Text = $"Running: {script.Name} ({completed + 1} of {total})";
+
+                        bool ok = await RunOneScriptAsync(script, dateFromValue, dateToValue, outputFolder, token);
+                        completed++;
+                        if (ok) succeeded++; else failed++;
+
+                        double newValue = (double)completed / total * 100.0;
+                        await AnimateProgressBarAsync(prgProgress, newValue);
+                        lblProgressPercent.Text = $"{newValue:0}%";
+                    }
+                }
+                finally
+                {
+                    if (cancelled) lblProgressStatus.Text = $"Cancelled. Completed {completed} of {total}.";
+                    else lblProgressStatus.Text = $"Done. Succeeded: {succeeded}, Failed: {failed}.";
+
+                    lblProgressPercent.Text = cancelled ? $"{prgProgress.Value:0}%" : "100%";
+
+                    if (cancelled) ToastService.Warning($"Run cancelled. {succeeded} of {total} succeeded.");
+                    else if (failed == 0) ToastService.Success($"{succeeded} script(s) completed successfully.");
+                    else ToastService.Warning($"{succeeded} succeeded, {failed} failed. Check the progress log.");
+
+                    // CN-02: Disable Cancel NOW — the run is already over, so a
+                    // click during the 5-second tail would only race the dispose.
+                    btnCancelRun.IsEnabled = false;
+
+                    // Null the field BEFORE disposing so any in-flight Cancel
+                    // sees null and bails out of its guard.
+                    var cts = _runCts;
+                    _runCts = null;
+                    try { cts?.Dispose(); } catch { /* already disposed */ }
+
+                    await Task.Delay(5000);
+
+                    prgProgress.Value = 0;
+                    lblProgressPercent.Text = "";
+                    lblProgressStatus.Text = "";
+                    lblSelectedScript.Text = "(none)";
+                    lblSelectedScript.FontStyle = FontStyles.Italic;
+
+                    btnRun.IsEnabled = true;
+                    btnRefresh.IsEnabled = true;
                 }
             }
             finally
             {
-                if (cancelled) lblProgressStatus.Text = $"Cancelled. Completed {completed} of {total}.";
-                else lblProgressStatus.Text = $"Done. Succeeded: {succeeded}, Failed: {failed}.";
-
-                lblProgressPercent.Text = cancelled ? $"{prgProgress.Value:0}%" : "100%";
-
-                if (cancelled) ToastService.Warning($"Run cancelled. {succeeded} of {total} succeeded.");
-                else if (failed == 0) ToastService.Success($"{succeeded} script(s) completed successfully.");
-                else ToastService.Warning($"{succeeded} succeeded, {failed} failed. Check the progress log.");
-
-                await Task.Delay(5000);
-
-                prgProgress.Value = 0;
-                lblProgressPercent.Text = "";
-                lblProgressStatus.Text = "";
-                lblSelectedScript.Text = "(none)";
-                lblSelectedScript.FontStyle = FontStyles.Italic;
-
-                btnRun.IsEnabled = true;
-                btnRefresh.IsEnabled = true;
-                btnCancelRun.IsEnabled = false;
-
-                _runCts?.Dispose();
-                _runCts = null;
+                _isRunning = false;
             }
         }
 
@@ -586,7 +664,9 @@ namespace KabarakScriptRunnerApp
             if (confirm != MessageBoxResult.Yes) return;
 
             if (_currentUser != null)
-                _ = LogAuditAsync(_currentUser.UserId, "Logout", "User", _currentUser.UserId, $"User '{_currentUser.UserId}' ({_currentUser.DisplayName}) logged out.");
+                SafeFireAndForget(
+                    () => LogAuditAsync(_currentUser.UserId, "Logout", "User", _currentUser.UserId, $"User '{_currentUser.UserId}' ({_currentUser.DisplayName}) logged out."),
+                    "Logout audit");
 
             LogoutRequested = true;
             Dispatcher.BeginInvoke(new Action(() => { try { Close(); } catch { } }), System.Windows.Threading.DispatcherPriority.Background);

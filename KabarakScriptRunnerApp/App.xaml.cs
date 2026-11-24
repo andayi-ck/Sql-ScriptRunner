@@ -90,11 +90,23 @@ namespace KabarakScriptRunnerApp
 
             DispatcherUnhandledException += (_, args) =>
             {
+                // F-07 Fix: Log the real error, never show it to the user.
                 Log.Error(args.Exception, "UI thread exception");
                 SentrySdk.CaptureException(args.Exception);
+
+                // CN-09: Cancellation and disposal exceptions are expected during
+                // window teardown / user-cancel. Swallow them silently — they are
+                // already logged above.
+                if (args.Exception is OperationCanceledException ||
+                    args.Exception is ObjectDisposedException)
+                {
+                    args.Handled = true;
+                    return;
+                }
+
                 MessageBox.Show(
-                    $"An unexpected error occurred:\n\n{args.Exception.Message}\n\n" +
-                    "The error has been logged. If it persists, contact your administrator.",
+                    "An unexpected error occurred. The error has been logged. " +
+                    "If it persists, contact your administrator.",
                     "Unexpected Error",
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 args.Handled = true;

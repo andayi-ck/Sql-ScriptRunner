@@ -12,6 +12,7 @@ using KabarakScriptRunner.Data.Models;
 using KabarakScriptRunner.Data.Repositories;
 using KabarakScriptRunnerApp.Services;
 using Microsoft.Win32;
+using Serilog;
 
 namespace KabarakScriptRunnerApp
 {
@@ -22,6 +23,9 @@ namespace KabarakScriptRunnerApp
 
         private List<ScriptRow> _allScripts = new();
         private CancellationTokenSource? _batchCts;
+
+        // CN-03: Re-entry guard, independent of button state.
+        private bool _isBatchRunning;
 
         public BatchExportWindow(ScriptRepository scriptRepository, User currentUser)
         {
@@ -69,7 +73,8 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load scripts:\n\n{ex.Message}",
+                Log.Error(ex, "Failed to load scripts in BatchExportWindow");
+                MessageBox.Show("Failed to load scripts. Please try again.",
                     "Load Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -128,116 +133,144 @@ namespace KabarakScriptRunnerApp
         // ============================================
         private async void btnRunBatch_Click(object sender, RoutedEventArgs e)
         {
-            // Validate
-            var selected = _allScripts.Where(s => s.IsSelected).ToList();
-            if (selected.Count == 0)
-            {
-                MessageBox.Show("Please select at least one script.",
-                    "Nothing Selected", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
+            if (_isBatchRunning) return;
+            _isBatchRunning = true;
 
-            var outputFolder = txtOutputFolder.Text.Trim();
-            if (string.IsNullOrWhiteSpace(outputFolder))
+            try
             {
-                MessageBox.Show("Please select an output folder.",
-                    "No Output Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            try { Directory.CreateDirectory(outputFolder); }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Cannot use output folder:\n\n{ex.Message}",
-                    "Invalid Folder", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
-            if (dtpFrom.SelectedDate == null || dtpTo.SelectedDate == null)
-            {
-                MessageBox.Show("Please select the date range.",
-                    "Missing Dates", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            var dateFrom = dtpFrom.SelectedDate.Value;
-            var dateTo = dtpTo.SelectedDate.Value;
-
-            if (dateTo > DateTime.Today)
-            {
-                MessageBox.Show("Date To cannot be in the future.",
-                    "Invalid Date", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-            if (dateTo < dateFrom)
-            {
-                MessageBox.Show("Date To cannot be earlier than Date From.",
-                    "Invalid Range", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            // Check scheduling
-            DateTime? scheduledAt = null;
-            if (dtpScheduleDate.SelectedDate.HasValue &&
-                !string.IsNullOrWhiteSpace(txtScheduleTime.Text))
-            {
-                if (TimeSpan.TryParse(txtScheduleTime.Text, out var time))
+                // Validate
+                var selected = _allScripts.Where(s => s.IsSelected).ToList();
+                if (selected.Count == 0)
                 {
-                    scheduledAt = dtpScheduleDate.SelectedDate.Value.Date + time;
-                    if (scheduledAt <= DateTime.Now)
+                    MessageBox.Show("Please select at least one script.",
+                        "Nothing Selected", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var outputFolder = txtOutputFolder.Text.Trim();
+                if (string.IsNullOrWhiteSpace(outputFolder))
+                {
+                    MessageBox.Show("Please select an output folder.",
+                        "No Output Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                try { Directory.CreateDirectory(outputFolder); }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Cannot use output folder:\n\n{ex.Message}",
+                        "Invalid Folder", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                if (dtpFrom.SelectedDate == null || dtpTo.SelectedDate == null)
+                {
+                    MessageBox.Show("Please select the date range.",
+                        "Missing Dates", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var dateFrom = dtpFrom.SelectedDate.Value;
+                var dateTo = dtpTo.SelectedDate.Value;
+
+                if (dateTo > DateTime.Today)
+                {
+                    MessageBox.Show("Date To cannot be in the future.",
+                        "Invalid Date", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+                if (dateTo < dateFrom)
+                {
+                    MessageBox.Show("Date To cannot be earlier than Date From.",
+                        "Invalid Range", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                // Check scheduling
+                DateTime? scheduledAt = null;
+                if (dtpScheduleDate.SelectedDate.HasValue &&
+                    !string.IsNullOrWhiteSpace(txtScheduleTime.Text))
+                {
+                    if (TimeSpan.TryParse(txtScheduleTime.Text, out var time))
                     {
-                        MessageBox.Show("The scheduled time is in the past. Please pick a future time.",
-                            "Invalid Schedule", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        scheduledAt = dtpScheduleDate.SelectedDate.Value.Date + time;
+                        if (scheduledAt <= DateTime.Now)
+                        {
+                            MessageBox.Show("The scheduled time is in the past. Please pick a future time.",
+                                "Invalid Schedule", MessageBoxButton.OK, MessageBoxImage.Warning);
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("The time format is invalid. Use HH:mm, e.g. 02:00.",
+                            "Invalid Time", MessageBoxButton.OK, MessageBoxImage.Warning);
                         return;
                     }
                 }
-                else
-                {
-                    MessageBox.Show("The time format is invalid. Use HH:mm, e.g. 02:00.",
-                        "Invalid Time", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-            }
 
-            // Confirm
-            var confirm = MessageBox.Show(
-                $"You are about to run {selected.Count} scripts.\n\n" +
-                $"Date range: {dateFrom:yyyy-MM-dd} to {dateTo:yyyy-MM-dd}\n" +
-                $"Output folder: {outputFolder}\n" +
-                (scheduledAt.HasValue ? $"Scheduled for: {scheduledAt:yyyy-MM-dd HH:mm}\n" : "Immediate execution\n") +
-                "\nProceed?",
-                "Confirm Batch",
-                MessageBoxButton.YesNo, MessageBoxImage.Question);
+                // Confirm
+                var confirm = MessageBox.Show(
+                    $"You are about to run {selected.Count} scripts.\n\n" +
+                    $"Date range: {dateFrom:yyyy-MM-dd} to {dateTo:yyyy-MM-dd}\n" +
+                    $"Output folder: {outputFolder}\n" +
+                    (scheduledAt.HasValue ? $"Scheduled for: {scheduledAt:yyyy-MM-dd HH:mm}\n" : "Immediate execution\n") +
+                    "\nProceed?",
+                    "Confirm Batch",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question);
 
-            if (confirm != MessageBoxResult.Yes) return;
+                if (confirm != MessageBoxResult.Yes) return;
 
-            // If scheduled, wait
-            if (scheduledAt.HasValue)
-            {
-                var wait = scheduledAt.Value - DateTime.Now;
-                lblStatus.Text = $"Scheduled. Waiting until {scheduledAt:yyyy-MM-dd HH:mm} ({(int)wait.TotalMinutes} minutes from now)...";
-
+                // CN-05: Create the CTS ONCE, here, and own it until the finally below.
+                // ExecuteBatchAsync no longer creates its own — it receives the token.
                 _batchCts = new CancellationTokenSource();
+                var token = _batchCts.Token;
+
                 try
                 {
-                    await Task.Delay(wait, _batchCts.Token);
+                    // If scheduled, wait
+                    if (scheduledAt.HasValue)
+                    {
+                        var wait = scheduledAt.Value - DateTime.Now;
+                        lblStatus.Text = $"Scheduled. Waiting until {scheduledAt:yyyy-MM-dd HH:mm} ({(int)wait.TotalMinutes} minutes from now)...";
+
+                        try
+                        {
+                            await Task.Delay(wait, token);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            lblStatus.Text = "Scheduled batch cancelled.";
+                            return;
+                        }
+                    }
+
+                    // Run
+                    await ExecuteBatchAsync(selected, dateFrom, dateTo, outputFolder, token);
                 }
-                catch (OperationCanceledException)
+                finally
                 {
-                    lblStatus.Text = "Scheduled batch cancelled.";
-                    return;
+                    // CN-03 + CN-05: Single owner disposes; null BEFORE dispose so
+                    // any in-flight Cancel sees null and bails.
+                    var cts = _batchCts;
+                    _batchCts = null;
+                    try { cts?.Dispose(); } catch { /* already disposed */ }
                 }
             }
-
-            // Run
-            await ExecuteBatchAsync(selected, dateFrom, dateTo, outputFolder);
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Batch run failed unexpectedly");
+                MessageBox.Show("The batch export failed unexpectedly. Please check the logs.",
+                    "Batch Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isBatchRunning = false;
+            }
         }
 
-        private async Task ExecuteBatchAsync(List<ScriptRow> selected, DateTime dateFrom, DateTime dateTo, string outputFolder)
+        private async Task ExecuteBatchAsync(List<ScriptRow> selected, DateTime dateFrom, DateTime dateTo, string outputFolder, CancellationToken token)
         {
-            _batchCts = new CancellationTokenSource();
-            var token = _batchCts.Token;
-
             btnRunBatch.IsEnabled = false;
             btnSelectAll.IsEnabled = false;
             btnBrowse.IsEnabled = false;
@@ -264,7 +297,6 @@ namespace KabarakScriptRunnerApp
 
                     try
                     {
-                        // Convert ScriptRow to Script (needed by the executor)
                         var script = new Script
                         {
                             ScriptId = row.ScriptId,
@@ -277,11 +309,9 @@ namespace KabarakScriptRunnerApp
                             NeedsDateTo = row.NeedsDateTo
                         };
 
-                        // Log start
                         var runId = await _scriptRepository.StartScriptRunAsync(
                             _currentUser.UserId, script.ScriptId, dateFrom, dateTo);
 
-                        // Execute
                         var table = await ScriptExecutorService.ExecuteScriptAsync(
                             App.ConnectionString,
                             script.SqlText,
@@ -289,13 +319,10 @@ namespace KabarakScriptRunnerApp
                             script.NeedsDateTo ? dateTo : null,
                             token);
 
-                        // Export
                         var filePath = ExcelExportService.ExportToExcel(table, outputFolder, script.Name);
 
-                        // Log success
                         await _scriptRepository.FinishScriptRunSuccessAsync(runId, table.Rows.Count, filePath);
 
-                        // Audit
                         await _scriptRepository.LogAdminActionAsync(
                             _currentUser.UserId, "BatchScriptRan", "Script",
                             script.ScriptId.ToString(),
@@ -306,10 +333,17 @@ namespace KabarakScriptRunnerApp
                     catch (Exception ex)
                     {
                         fail++;
-                        await _scriptRepository.LogAdminActionAsync(
-                            _currentUser.UserId, "BatchScriptFailed", "Script",
-                            row.ScriptId.ToString(),
-                            $"Batch: '{row.Name}' failed: {ex.Message}");
+                        try
+                        {
+                            await _scriptRepository.LogAdminActionAsync(
+                                _currentUser.UserId, "BatchScriptFailed", "Script",
+                                row.ScriptId.ToString(),
+                                $"Batch: '{row.Name}' failed: {ex.Message}");
+                        }
+                        catch (Exception logEx)
+                        {
+                            Log.Warning(logEx, "Failed to write BatchScriptFailed audit row");
+                        }
                     }
 
                     prgBatch.Value = i + 1;
@@ -320,37 +354,44 @@ namespace KabarakScriptRunnerApp
                 btnRunBatch.IsEnabled = true;
                 btnSelectAll.IsEnabled = true;
                 btnBrowse.IsEnabled = true;
-                _batchCts?.Dispose();
-                _batchCts = null;
 
                 var elapsed = DateTime.Now - startedAt;
                 lblStatus.Text = $"Batch complete in {elapsed:mm\\:ss}. Succeeded: {ok}, Failed: {fail}. Folder: {outputFolder}";
 
-                // Toast summary
                 if (fail == 0)
                     ToastService.Success($"Batch complete: {ok} file(s) exported.");
                 else
                     ToastService.Warning($"Batch done: {ok} succeeded, {fail} failed.");
 
-                // Open the folder
                 try { System.Diagnostics.Process.Start("explorer.exe", outputFolder); }
-                catch { }
+                catch (Exception ex) { Log.Warning(ex, "Could not open explorer for output folder"); }
             }
         }
 
+        /// <summary>
+        /// CN-03: Capture _batchCts into a local across the modal. If the batch
+        /// finishes while the modal is open, the field is null — bail cleanly.
+        /// </summary>
         private void btnCancel_Click(object sender, RoutedEventArgs e)
         {
-            if (_batchCts != null && !_batchCts.IsCancellationRequested)
+            var cts = _batchCts;
+            if (cts != null && !cts.IsCancellationRequested)
             {
                 var confirm = MessageBox.Show(
                     "Cancel the running batch?\n\n" +
                     "Scripts already completed will keep their Excel files.",
                     "Cancel Batch", MessageBoxButton.YesNo, MessageBoxImage.Question);
 
-                if (confirm == MessageBoxResult.Yes)
+                if (confirm != MessageBoxResult.Yes) return;
+
+                try
                 {
-                    _batchCts.Cancel();
+                    cts.Cancel();
                     lblStatus.Text = "Cancellation requested...";
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Batch finished while the modal was open — nothing to do.
                 }
             }
             else
@@ -360,23 +401,29 @@ namespace KabarakScriptRunnerApp
             }
         }
 
+        /// <summary>
+        /// CN-03: Same local-capture pattern as btnCancel_Click.
+        /// </summary>
         private void btnClose_Click(object sender, RoutedEventArgs e)
         {
-            if (_batchCts != null && !_batchCts.IsCancellationRequested)
+            var cts = _batchCts;
+            if (cts != null && !cts.IsCancellationRequested)
             {
                 var confirm = MessageBox.Show(
                     "A batch is currently running. Are you sure you want to close this window?",
                     "Batch Running", MessageBoxButton.YesNo, MessageBoxImage.Warning);
 
                 if (confirm != MessageBoxResult.Yes) return;
-                _batchCts.Cancel();
+
+                try { cts.Cancel(); }
+                catch (ObjectDisposedException) { /* already finished */ }
             }
             Close();
         }
     }
 
     // ============================================
-    // ROW VIEW MODEL for the DataGrid
+    // ROW VIEW MODEL for the DataGrid — UNCHANGED
     // ============================================
     public class ScriptRow : System.ComponentModel.INotifyPropertyChanged
     {

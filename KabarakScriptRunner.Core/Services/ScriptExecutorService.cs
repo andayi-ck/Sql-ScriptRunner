@@ -30,42 +30,87 @@ namespace KabarakScriptRunner.Core.Services
                     "Script validation failed:\n" + string.Join("\n", errors));
             }
 
-            var policy = Policy
-                .Handle<SqlException>(ex => IsTransient(ex))
-                .Or<TimeoutException>()
-                .WaitAndRetryAsync(
-                    retryCount: 2,
-                    sleepDurationProvider: attempt => TimeSpan.FromSeconds(attempt * 2),
-                    onRetry: (exception, delay, attempt, _) =>
-                    {
-                        System.Diagnostics.Debug.WriteLine(
-                            $"[ScriptExecutor] Retry {attempt} after {delay.TotalSeconds}s. Reason: {exception.Message}");
-                    });
+            // CN-08: Retry loop is now cancellation-aware. We no longer rely on
+            // Polly's WaitAndRetryAsync (whose Thread.Sleep backoff ignores the
+            // token). Instead we retry manually with Task.Delay(..., token) so a
+            // Cancel during backoff surfaces immediately instead of after the
+            // 2s + 4s sleeps finish.
+            const int maxAttempts = 3; // 1 initial + 2 retries, matches prior retryCount: 2
+            var exceptions = new List<Exception>();
 
-            return await policy.ExecuteAsync(async () =>
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                using var connection = new SqlConnection(connectionString);
+                cancellationToken.ThrowIfCancellationRequested();
 
-                var parameters = new DynamicParameters();
+                try
+                {
+                    return await ExecuteOnceAsync(connectionString, sqlText, dateFrom, dateTo, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    // User cancellation — never retry.
+                    throw;
+                }
+                catch (Exception ex) when (IsRetryable(ex))
+                {
+                    exceptions.Add(ex);
 
-                if (sqlText.Contains("@DateFrom", StringComparison.OrdinalIgnoreCase))
-                    parameters.Add("@DateFrom", dateFrom, DbType.Date);
+                    if (attempt == maxAttempts)
+                        break;
 
-                if (sqlText.Contains("@DateTo", StringComparison.OrdinalIgnoreCase))
-                    parameters.Add("@DateTo", dateTo, DbType.Date);
+                    var delay = TimeSpan.FromSeconds(attempt * 2); // 2s, 4s
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[ScriptExecutor] Retry {attempt} after {delay.TotalSeconds}s. Reason: {ex.Message}");
 
-                var table = new DataTable();
+                    // CN-08: Cancellation-aware backoff. Throws OperationCanceledException
+                    // immediately if the user cancels mid-sleep.
+                    await Task.Delay(delay, cancellationToken);
+                }
+            }
 
-                using var reader = await connection.ExecuteReaderAsync(
-                    new CommandDefinition(
-                        sqlText,
-                        parameters,
-                        commandTimeout: 300,
-                        cancellationToken: cancellationToken));
+            // All attempts exhausted — rethrow the last failure with context.
+            throw new InvalidOperationException(
+                $"Script execution failed after {maxAttempts} attempt(s).", exceptions[^1]);
+        }
 
-                table.Load(reader);
-                return table;
-            });
+        private static async Task<DataTable> ExecuteOnceAsync(
+            string connectionString,
+            string sqlText,
+            DateTime? dateFrom,
+            DateTime? dateTo,
+            CancellationToken cancellationToken)
+        {
+            using var connection = new SqlConnection(connectionString);
+
+            var parameters = new DynamicParameters();
+
+            if (sqlText.Contains("@DateFrom", StringComparison.OrdinalIgnoreCase))
+                parameters.Add("@DateFrom", dateFrom, DbType.Date);
+
+            if (sqlText.Contains("@DateTo", StringComparison.OrdinalIgnoreCase))
+                parameters.Add("@DateTo", dateTo, DbType.Date);
+
+            var table = new DataTable();
+
+            using var reader = await connection.ExecuteReaderAsync(
+                new CommandDefinition(
+                    sqlText,
+                    parameters,
+                    commandTimeout: 300,
+                    cancellationToken: cancellationToken));
+
+            table.Load(reader);
+            return table;
+        }
+
+        private static bool IsRetryable(Exception ex)
+        {
+            return ex switch
+            {
+                SqlException sql => IsTransient(sql),
+                TimeoutException => true,
+                _ => false
+            };
         }
 
         private static bool IsTransient(SqlException ex)

@@ -10,6 +10,10 @@ namespace KabarakScriptRunnerApp
     {
         private readonly DashboardViewModel _vm;
 
+        // CN-04b: Monotonic generation counter. Only the most recent LoadAsync
+        // is allowed to write UI state; older in-flight loads bail out.
+        private int _loadGeneration;
+
         public DashboardWindow(DashboardRepository dashboardRepository)
         {
             InitializeComponent();
@@ -19,6 +23,8 @@ namespace KabarakScriptRunnerApp
 
         private async System.Threading.Tasks.Task LoadAsync()
         {
+            int generation = ++_loadGeneration;
+
             try
             {
                 lblStatus.Text = "Loading dashboard data...";
@@ -27,6 +33,10 @@ namespace KabarakScriptRunnerApp
                 KabarakScriptRunnerApp.Services.ToastService.Information("Please wait", "Querying information from the database...");
 
                 await _vm.LoadAsync();
+
+                // CN-04b: A newer load started while we were awaiting — discard
+                // our (now stale) results so the latest refresh wins.
+                if (generation != _loadGeneration) return;
 
                 // KPIs
                 lblActiveStudents.Text = _vm.ActiveStudents.ToString("N0");
@@ -53,6 +63,8 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
+                // CN-04b: Only the latest generation may surface an error dialog.
+                if (generation != _loadGeneration) return;
                 lblStatus.Text = $"Failed to load dashboard: {ex.Message}";
                 MessageBox.Show($"Failed to load dashboard:\n\n{ex.Message}",
                     "Dashboard Error", MessageBoxButton.OK, MessageBoxImage.Error);

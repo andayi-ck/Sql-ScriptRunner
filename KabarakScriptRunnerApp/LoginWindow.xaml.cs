@@ -12,6 +12,11 @@ namespace KabarakScriptRunnerApp
     {
         private readonly ScriptRepository _scriptRepository;
 
+        // CN-01: Re-entry guard. Prevents overlapping login attempts from
+        // rapid double-clicks / Enter+Click. This is UI-thread-only state,
+        // so no lock is needed — all continuations resume on the WPF context.
+        private bool _isLoggingIn;
+
         public User? AuthenticatedUser { get; private set; }
         public Department? SelectedDepartment { get; private set; }
 
@@ -42,22 +47,28 @@ namespace KabarakScriptRunnerApp
 
         private async void btnLogin_Click(object sender, RoutedEventArgs e)
         {
+            // CN-01: Ignore a second click while an attempt is already in flight.
+            if (_isLoggingIn) return;
+            _isLoggingIn = true;
+
+            btnLogin.IsEnabled = false;
+            btnCancel.IsEnabled = false;
             lblError.Text = "";
-
-            var username = txtUsername.Text.Trim();
-            var password = txtPassword.Password;
-            var selectedDept = cmbDepartment.SelectedItem as Department;
-
-            if (string.IsNullOrWhiteSpace(username) ||
-                string.IsNullOrWhiteSpace(password) ||
-                selectedDept == null)
-            {
-                lblError.Text = "Please enter username, password, and select a department.";
-                return;
-            }
 
             try
             {
+                var username = txtUsername.Text.Trim();
+                var password = txtPassword.Password;
+                var selectedDept = cmbDepartment.SelectedItem as Department;
+
+                if (string.IsNullOrWhiteSpace(username) ||
+                    string.IsNullOrWhiteSpace(password) ||
+                    selectedDept == null)
+                {
+                    lblError.Text = "Please enter username, password, and select a department.";
+                    return;
+                }
+
                 var user = await _scriptRepository.GetUserByIdAsync(username);
 
                 // 1. User must exist
@@ -81,9 +92,11 @@ namespace KabarakScriptRunnerApp
                 bool passwordOk = PasswordHasher.Verify(password, user.PasswordHash);
                 if (!passwordOk)
                 {
-                    await _scriptRepository.IncrementFailedAttemptsAsync(user.UserId, user.FailedAttempts);
+                    // CN-01: The repository now returns the NEW count atomically,
+                    // so the lockout decision is based on DB truth, not a stale read.
+                    int newAttempts = await _scriptRepository.IncrementFailedAttemptsAsync(user.UserId);
 
-                    if (user.FailedAttempts + 1 >= 5)
+                    if (newAttempts >= 5)
                     {
                         lblError.Text = "Account locked for 5 minutes due to too many failed attempts.";
                         await LogAuditAsync(username, "AccountLocked", "User", username, "Locked out for 5 minutes.");
@@ -127,6 +140,16 @@ namespace KabarakScriptRunnerApp
                 // F-07 Fix: Log the real error, show generic
                 Log.Error(ex, "Unexpected error during login");
                 lblError.Text = "An unexpected error occurred. Please try again later.";
+            }
+            finally
+            {
+                _isLoggingIn = false;
+                // Re-enable unless we're closing (Close() already tore down the window).
+                if (IsLoaded)
+                {
+                    btnLogin.IsEnabled = true;
+                    btnCancel.IsEnabled = true;
+                }
             }
         }
 

@@ -28,16 +28,17 @@ namespace KabarakScriptRunner.Data.Repositories
             {
                 using var connection = _context.CreateConnection();
                 const string sql = @"
-                    SELECT u.UserId, u.DisplayName, u.PasswordHash, u.IsAdmin, u.IsActive,
-                           u.DepartmentId, d.DepartmentName,
-                           u.FailedAttempts, u.LockoutEnd  -- <--- ADD THESE TWO COLUMNS
-                    FROM app.Users u
-                    LEFT JOIN app.Departments d ON u.DepartmentId = d.DepartmentId
-                    WHERE u.UserId = @UserId AND u.IsActive = 1";
+            SELECT u.UserId, u.DisplayName, u.PasswordHash, u.IsAdmin, u.IsActive,
+                   u.DepartmentId, d.DepartmentName,
+                   u.FailedAttempts, u.LockoutEnd
+            FROM app.Users u
+            LEFT JOIN app.Departments d ON u.DepartmentId = d.DepartmentId
+            WHERE u.UserId = @UserId AND u.IsActive = 1";
 
                 return await connection.QueryFirstOrDefaultAsync<User>(sql, new { UserId = userId });
             });
         }
+
 
 
 
@@ -168,33 +169,45 @@ namespace KabarakScriptRunner.Data.Repositories
             });
         }
 
-
-        public async Task IncrementFailedAttemptsAsync(string userId, int currentAttempts)
+        /// <summary>
+        /// CN-01: Atomically increments FailedAttempts and — once the threshold is
+        /// reached — also sets LockoutEnd. Returns the NEW FailedAttempts value so the
+        /// caller can base its lockout decision on DB truth rather than a stale read.
+        /// The increment itself is a single UPDATE, so concurrent failed logins cannot
+        /// lose an update.
+        /// </summary>
+        public async Task<int> IncrementFailedAttemptsAsync(string userId)
         {
-            using var connection = _context.CreateConnection();
-            if (currentAttempts + 1 >= 5)
+            return await RunWithRetryAsync(async () =>
             {
-                // Lock out for 5 minutes
-                await connection.ExecuteAsync(@"
-                    UPDATE app.Users 
-                    SET FailedAttempts = FailedAttempts + 1, 
-                        LockoutEnd = DATEADD(MINUTE, 5, GETDATE()) 
-                    WHERE UserId = @UserId", new { UserId = userId });
-            }
-            else
-            {
-                await connection.ExecuteAsync(
-                    "UPDATE app.Users SET FailedAttempts = FailedAttempts + 1 WHERE UserId = @UserId",
-                    new { UserId = userId });
-            }
+                using var connection = _context.CreateConnection();
+
+                // Single statement: increment, conditionally lock out, return the new count.
+                // Using CASE keeps this to one round-trip and one atomic UPDATE.
+                const string sql = @"
+            UPDATE app.Users
+            SET FailedAttempts = FailedAttempts + 1,
+                LockoutEnd = CASE
+                    WHEN FailedAttempts + 1 >= 5 THEN DATEADD(MINUTE, 5, GETDATE())
+                    ELSE LockoutEnd
+                END
+            OUTPUT INSERTED.FailedAttempts
+            WHERE UserId = @UserId";
+
+                return await connection.ExecuteScalarAsync<int>(sql, new { UserId = userId });
+            });
         }
+
 
         public async Task ResetFailedAttemptsAsync(string userId)
         {
-            using var connection = _context.CreateConnection();
-            await connection.ExecuteAsync(
-                "UPDATE app.Users SET FailedAttempts = 0, LockoutEnd = NULL WHERE UserId = @UserId",
-                new { UserId = userId });
+            await RunWithRetryAsync(async () =>
+            {
+                using var connection = _context.CreateConnection();
+                await connection.ExecuteAsync(
+                    "UPDATE app.Users SET FailedAttempts = 0, LockoutEnd = NULL WHERE UserId = @UserId",
+                    new { UserId = userId });
+            });
         }
 
 
