@@ -9,6 +9,9 @@ namespace KabarakScriptRunnerApp.Startup
         /// <summary>
         /// Validates that appsettings.json exists and contains a valid connection string.
         /// Throws a descriptive exception if anything is wrong.
+        /// EH-06: Exception messages keep file-path/parser detail for the LOG, but the
+        /// App.xaml startup catch no longer renders ex.Message to the user — it shows a
+        /// generic message + correlation ID instead. The detail here stays diagnostic.
         /// </summary>
         public static IConfiguration LoadAndValidate()
         {

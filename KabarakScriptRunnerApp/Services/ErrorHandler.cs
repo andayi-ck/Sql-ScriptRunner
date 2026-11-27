@@ -6,14 +6,18 @@ namespace KabarakScriptRunnerApp.Services
 {
     public static class ErrorHandler
     {
-        public static void Show(Exception ex, string context, bool isFatal = false)
+        /// <summary>
+        /// EH-02: Now takes a caller-supplied user-safe message instead of
+        /// interpolating ex.Message. If no message is supplied, the centralized
+        /// SafeErrorMessage mapper is used. The full exception is still logged.
+        /// </summary>
+        public static void Show(Exception ex, string context, string? userMessage = null, bool isFatal = false)
         {
-            Log.Error(ex, "Error in {Context}", context);
+            var safeMessage = userMessage ?? SafeErrorMessage.For(ex, context);
             var title = isFatal ? "Fatal Error" : "Error";
             var icon = isFatal ? MessageBoxImage.Stop : MessageBoxImage.Error;
             MessageBox.Show(
-                $"An error occurred in {context}:\n\n{ex.Message}\n\n" +
-                "Details have been written to the application log.",
+                $"{safeMessage}\n\nDetails have been written to the application log.",
                 title, MessageBoxButton.OK, icon);
         }
 

@@ -55,11 +55,18 @@ namespace KabarakScriptRunnerApp
 
             Directory.CreateDirectory(logFolder);
 
-            Log.Logger = new LoggerConfiguration()
+            var loggerConfig = new LoggerConfiguration()
                 .MinimumLevel.Information()
                 .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
-                .Enrich.FromLogContext()
-                .WriteTo.Debug()
+                .Enrich.FromLogContext();
+
+            // EH-05: Debug sink only in DEBUG builds — Release binaries no longer
+            // emit exception detail to attached debuggers/tools on shared machines.
+#if DEBUG
+            loggerConfig = loggerConfig.WriteTo.Debug();
+#endif
+
+            Log.Logger = loggerConfig
                 .WriteTo.File(
                     Path.Combine(logFolder, "log-.txt"),
                     rollingInterval: RollingInterval.Day,
@@ -75,10 +82,15 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                Log.Fatal(ex, "Configuration validation failed");
+                // EH-01/EH-06: Log full detail, show a generic startup message
+                // with a correlation ID. No JSON parser text or file path leaks.
+                var correlationId = DateTime.Now.ToString("HH:mm:ss.fff");
+                Log.Fatal(ex, "Configuration validation failed (ref {CorrelationId})", correlationId);
                 SentrySdk.CaptureException(ex);
                 MessageBox.Show(
-                    $"The application could not start:\n\n{ex.Message}",
+                    "The application could not start because its configuration is invalid.\n\n" +
+                    $"Reference: {correlationId}\n\n" +
+                    "Details have been written to the application log. Contact your administrator.",
                     "Configuration Error",
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 Shutdown(1);

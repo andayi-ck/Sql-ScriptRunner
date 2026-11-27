@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows;
 using KabarakScriptRunner.Data.Models;
 using KabarakScriptRunner.Data.Repositories;
+using KabarakScriptRunnerApp.Services;
 
 namespace KabarakScriptRunnerApp
 {
@@ -29,7 +30,6 @@ namespace KabarakScriptRunnerApp
         {
             try
             {
-                // Add "(Unassigned)" placeholder so users can clear the department
                 var depts = (await _scriptRepository.GetDepartmentsAsync()).ToList();
                 depts.Insert(0, new Department
                 {
@@ -38,14 +38,11 @@ namespace KabarakScriptRunnerApp
                 });
                 Departments = depts;
 
-                // Load scripts fresh from the DB
                 Scripts = (await _scriptRepository.GetScriptsAsync(null, true)).ToList();
 
-                // Normalize NULL DepartmentId to 0 for the ComboBox binding
                 foreach (var s in Scripts)
                     if (s.DepartmentId == null) s.DepartmentId = 0;
 
-                // Rebind
                 DataContext = null;
                 DataContext = this;
 
@@ -54,7 +51,9 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load data:\n\n{ex.Message}",
+                // EH-01: safe text only.
+                var safe = SafeErrorMessage.For(ex, "AssignScripts.Load");
+                MessageBox.Show($"Failed to load data:\n\n{safe}",
                     "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -70,10 +69,8 @@ namespace KabarakScriptRunnerApp
 
                 foreach (var script in Scripts)
                 {
-                    // Convert 0 back to null for "unassigned"
                     int? newDeptId = script.DepartmentId == 0 ? null : script.DepartmentId;
 
-                    // Read the current DB value so we can detect real changes
                     var existing = await _scriptRepository.GetScriptByIdAsync(script.ScriptId);
                     int? oldDeptId = existing?.DepartmentId;
 
@@ -83,10 +80,8 @@ namespace KabarakScriptRunnerApp
                         continue;
                     }
 
-                    // Update the DB
                     await _scriptRepository.UpdateScriptDepartmentAsync(script.ScriptId, newDeptId);
 
-                    // Build human-readable names for the audit log
                     string fromName = oldDeptId == null
                         ? "(Unassigned)"
                         : Departments.FirstOrDefault(d => d.DepartmentId == oldDeptId)?.DepartmentName
@@ -97,7 +92,6 @@ namespace KabarakScriptRunnerApp
                         : Departments.FirstOrDefault(d => d.DepartmentId == newDeptId)?.DepartmentName
                           ?? $"Dept #{newDeptId}";
 
-                    // Audit trail
                     await _scriptRepository.LogAdminActionAsync(
                         _currentAdminUserId,
                         "ScriptReassigned",
@@ -119,7 +113,9 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to save:\n\n{ex.Message}",
+                // EH-01: safe text only.
+                var safe = SafeErrorMessage.For(ex, "AssignScripts.Save");
+                MessageBox.Show($"Failed to save:\n\n{safe}",
                     "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }

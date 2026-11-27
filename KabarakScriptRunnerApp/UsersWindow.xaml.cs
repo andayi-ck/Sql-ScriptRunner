@@ -30,7 +30,9 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load users:\n\n{ex.Message}",
+                // EH-01: safe text only.
+                var safe = SafeErrorMessage.For(ex, "LoadUsers");
+                MessageBox.Show($"Failed to load users:\n\n{safe}",
                     "Load Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -59,7 +61,6 @@ namespace KabarakScriptRunnerApp
         {
             if (dgUsers.SelectedItem is not UserSummary selected) return;
 
-            // Fetch the full user (with hash) just for the edit screen
             var fullUser = await _scriptRepository.GetUserByIdAsync(selected.UserId);
             if (fullUser == null) return;
 
@@ -69,7 +70,6 @@ namespace KabarakScriptRunnerApp
 
         private async void btnToggle_Click(object sender, RoutedEventArgs e)
         {
-            
             if (dgUsers.SelectedItem is not UserSummary selected)
             {
                 MessageBox.Show("Please select a user to activate or deactivate.",
@@ -110,7 +110,9 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to update user:\n\n{ex.Message}",
+                // EH-01: safe text only.
+                var safe = SafeErrorMessage.For(ex, "ToggleUserActive");
+                MessageBox.Show($"Failed to update user:\n\n{safe}",
                     "Update Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }

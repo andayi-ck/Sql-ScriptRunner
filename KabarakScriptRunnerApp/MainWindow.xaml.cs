@@ -23,13 +23,7 @@ namespace KabarakScriptRunnerApp
         private Department? _currentDepartment;
         private CancellationTokenSource? _runCts;
 
-        // CN-02: Guards re-entry into btnRun_Click independently of button state.
-        // The button is disabled, but a queued click during modal validation could
-        // still slip through — this bool closes that gap.
         private bool _isRunning;
-
-        // CN-04: Monotonic generation counter for LoadScriptsAsync. Only the most
-        // recent load is allowed to write UI state; older in-flight loads bail out.
         private int _scriptsLoadGeneration;
 
         private readonly ObservableCollection<LogEntry> _progressEntries = new();
@@ -100,16 +94,13 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Failed to load initial data");
-                MessageBox.Show($"Error loading data:\n\n{ex.Message}",
+                // EH-01: log full, show safe text + ref.
+                var safe = SafeErrorMessage.For(ex, "LoadInitialData");
+                MessageBox.Show($"Error loading data:\n\n{safe}",
                     "Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        /// <summary>
-        /// CN-04: Generation-guarded script load. Overlapping loads are safe; only
-        /// the most recent completion is allowed to mutate UI state and _previousScripts.
-        /// </summary>
         private async Task LoadScriptsAsync(bool isManualRefresh = false)
         {
             if (_currentUser == null) return;
@@ -123,7 +114,6 @@ namespace KabarakScriptRunnerApp
                     LoadingOverlay.Visibility = Visibility.Visible;
                     await Task.Delay(500);
 
-                    // If a newer load started while we were sleeping, let it win.
                     if (generation != _scriptsLoadGeneration) return;
                 }
 
@@ -131,7 +121,6 @@ namespace KabarakScriptRunnerApp
                     _currentDepartment?.DepartmentId,
                     _currentUser.IsAdmin)).ToList();
 
-                // Another load finished after us — discard our (now stale) results.
                 if (generation != _scriptsLoadGeneration) return;
 
                 if (isManualRefresh && _previousScripts.Count > 0)
@@ -148,13 +137,13 @@ namespace KabarakScriptRunnerApp
             catch (Exception ex)
             {
                 if (generation != _scriptsLoadGeneration) return;
-                Log.Error(ex, "Failed to refresh scripts");
-                MessageBox.Show($"Error refreshing scripts:\n\n{ex.Message}",
+                // EH-01: safe text only.
+                var safe = SafeErrorMessage.For(ex, "LoadScripts");
+                MessageBox.Show($"Error refreshing scripts:\n\n{safe}",
                     "Refresh Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
-                // Only the latest generation is allowed to hide the overlay.
                 if (isManualRefresh && generation == _scriptsLoadGeneration)
                 {
                     LoadingOverlay.Visibility = Visibility.Collapsed;
@@ -272,11 +261,6 @@ namespace KabarakScriptRunnerApp
             catch (Exception ex) { Log.Warning(ex, "Audit log write failed"); }
         }
 
-        /// <summary>
-        /// CN-06: Fire-and-forget wrapper that logs failures instead of swallowing
-        /// them silently. The task itself is observed by TaskScheduler.UnobservedTaskException,
-        /// but a log entry is far more useful than a Sentry breadcrumb.
-        /// </summary>
         private async void SafeFireAndForget(Func<Task> operation, string context)
         {
             try { await operation(); }
@@ -430,12 +414,6 @@ namespace KabarakScriptRunnerApp
             await LoadScriptsAsync(true);
         }
 
-        /// <summary>
-        /// CN-02: Never touch the _runCts field across a modal MessageBox.
-        /// Capture it into a local, guard for null/disposed, and swallow the
-        /// ObjectDisposedException that can fire if the run completed while the
-        /// modal was open.
-        /// </summary>
         private void btnCancelRun_Click(object sender, RoutedEventArgs e)
         {
             var cts = _runCts;
@@ -454,7 +432,6 @@ namespace KabarakScriptRunnerApp
             }
             catch (ObjectDisposedException)
             {
-                // The run already finished while the modal was open — nothing to do.
             }
         }
 
@@ -466,8 +443,6 @@ namespace KabarakScriptRunnerApp
                 return;
             }
 
-            // CN-02: Independent re-entry guard. Even with the button disabled,
-            // a queued click during a modal can re-enter this handler.
             if (_isRunning) return;
             _isRunning = true;
 
@@ -475,7 +450,6 @@ namespace KabarakScriptRunnerApp
             {
                 var selectedScripts = lstScripts.SelectedItems.Cast<Script>().ToList();
 
-                // Check for dialect mismatch before proceeding
                 var mismatchedScripts = selectedScripts.Where(s =>
                     !string.Equals(s.TargetDatabase, App.CurrentDatabaseType, StringComparison.OrdinalIgnoreCase)).ToList();
 
@@ -560,12 +534,8 @@ namespace KabarakScriptRunnerApp
                     else if (failed == 0) ToastService.Success($"{succeeded} script(s) completed successfully.");
                     else ToastService.Warning($"{succeeded} succeeded, {failed} failed. Check the progress log.");
 
-                    // CN-02: Disable Cancel NOW — the run is already over, so a
-                    // click during the 5-second tail would only race the dispose.
                     btnCancelRun.IsEnabled = false;
 
-                    // Null the field BEFORE disposing so any in-flight Cancel
-                    // sees null and bails out of its guard.
                     var cts = _runCts;
                     _runCts = null;
                     try { cts?.Dispose(); } catch { /* already disposed */ }
@@ -635,10 +605,16 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                AppendProgress($"✘ Failed: {ex.Message}");
-                if (runId > 0) { try { await _scriptRepository.FinishScriptRunFailedAsync(runId, ex.Message); } catch { } }
-                await LogAuditAsync(_currentUser!.UserId, "ScriptRan", "Script", script.ScriptId.ToString(), $"Script '{script.Name}' failed: {ex.Message}");
-                MessageBox.Show($"Error running script '{script.Name}':\n\n{ex.Message}", "Script Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                // EH-04: single exception, ONE safe presentation. Full detail goes to
+                // Serilog only; UI, progress, DB and audit all get the safe category +
+                // correlation ID so they can be matched to the log entry.
+                var safe = SafeErrorMessage.For(ex, "RunOneScript");
+                var persisted = SafeErrorMessage.PersistedReasonFor(ex, "RunOneScript");
+
+                AppendProgress($"✘ Failed: {safe}");
+                if (runId > 0) { try { await _scriptRepository.FinishScriptRunFailedAsync(runId, persisted); } catch { } }
+                await LogAuditAsync(_currentUser!.UserId, "ScriptRan", "Script", script.ScriptId.ToString(), $"Script '{script.Name}' failed: {persisted}");
+                MessageBox.Show($"Error running script '{script.Name}':\n\n{safe}", "Script Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
         }

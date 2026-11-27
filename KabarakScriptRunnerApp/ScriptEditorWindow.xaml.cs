@@ -2,7 +2,8 @@
 using System.Windows;
 using KabarakScriptRunner.Data.Repositories;
 using KabarakScriptRunner.Data.Models;
-using Serilog; // F-07 Fix
+using KabarakScriptRunnerApp.Services;
+using Serilog;
 
 namespace KabarakScriptRunnerApp
 {
@@ -38,7 +39,6 @@ namespace KabarakScriptRunnerApp
         {
             var sql = txtSqlText.Text.Trim();
 
-            // Use the new local parser
             var (isValid, errors) = KabarakScriptRunner.Core.Services.ScriptValidator.Validate(sql);
 
             if (isValid)
@@ -50,7 +50,7 @@ namespace KabarakScriptRunnerApp
             }
             else
             {
-                // Note: The parser errors are safe to show because they are generic syntax errors, not DB schema leaks.
+                // Parser errors are generic syntax errors — safe to show.
                 lblValidationStatus.Text = "❌ Error: " + string.Join("\n", errors);
                 lblValidationStatus.Foreground = System.Windows.Media.Brushes.Red;
                 _isSyntaxValidated = false;
@@ -129,10 +129,11 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                // F-07 Fix: Log the real error for you, show a safe message to the user
-                Log.Error(ex, "Failed to save script: {ScriptName}", name);
+                // EH-01: this path was already safe (generic message). Now it also
+                // logs with a correlation ID via SafeErrorMessage, so support can trace it.
+                var safe = SafeErrorMessage.For(ex, $"ScriptEditor.Save({name})");
                 MessageBox.Show(
-                    "An error occurred while saving the script. Please check your SQL syntax or contact the administrator.",
+                    $"An error occurred while saving the script.\n\n{safe}",
                     "Save Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }

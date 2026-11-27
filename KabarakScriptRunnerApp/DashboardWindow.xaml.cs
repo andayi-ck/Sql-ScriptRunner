@@ -2,6 +2,7 @@
 using System.Windows;
 using KabarakScriptRunner.Core.Services;
 using KabarakScriptRunner.Data.Repositories;
+using KabarakScriptRunnerApp.Services;
 using KabarakScriptRunnerApp.ViewModels;
 
 namespace KabarakScriptRunnerApp
@@ -10,8 +11,6 @@ namespace KabarakScriptRunnerApp
     {
         private readonly DashboardViewModel _vm;
 
-        // CN-04b: Monotonic generation counter. Only the most recent LoadAsync
-        // is allowed to write UI state; older in-flight loads bail out.
         private int _loadGeneration;
 
         public DashboardWindow(DashboardRepository dashboardRepository)
@@ -29,23 +28,18 @@ namespace KabarakScriptRunnerApp
             {
                 lblStatus.Text = "Loading dashboard data...";
 
-                // Show the toast notification
                 KabarakScriptRunnerApp.Services.ToastService.Information("Please wait", "Querying information from the database...");
 
                 await _vm.LoadAsync();
 
-                // CN-04b: A newer load started while we were awaiting — discard
-                // our (now stale) results so the latest refresh wins.
                 if (generation != _loadGeneration) return;
 
-                // KPIs
                 lblActiveStudents.Text = _vm.ActiveStudents.ToString("N0");
                 lblActiveStaff.Text = _vm.ActiveStaff.ToString("N0");
                 lblActiveScripts.Text = _vm.ActiveScripts.ToString("N0");
                 lblFees30.Text = "KES " + _vm.FeesLast30DaysFormatted;
                 lblRuns7.Text = _vm.RunsLast7Days.ToString("N0");
 
-                // Charts
                 chartFees.Series = _vm.FeesSeries;
                 chartFees.XAxes = _vm.FeesXAxes;
 
@@ -55,7 +49,6 @@ namespace KabarakScriptRunnerApp
                 chartCourses.Series = _vm.TopCoursesSeries;
                 chartCourses.YAxes = _vm.TopCoursesYAxes;
 
-                // Activity grid
                 dgActivity.ItemsSource = _vm.RecentActivity;
 
                 lblSubtitle.Text = $"Data as of {DateTime.Now:MMMM d, yyyy — HH:mm}";
@@ -63,10 +56,11 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                // CN-04b: Only the latest generation may surface an error dialog.
                 if (generation != _loadGeneration) return;
-                lblStatus.Text = $"Failed to load dashboard: {ex.Message}";
-                MessageBox.Show($"Failed to load dashboard:\n\n{ex.Message}",
+                // EH-01: safe text only.
+                var safe = SafeErrorMessage.For(ex, "DashboardLoad");
+                lblStatus.Text = $"Failed to load dashboard: {safe}";
+                MessageBox.Show($"Failed to load dashboard:\n\n{safe}",
                     "Dashboard Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -85,12 +79,11 @@ namespace KabarakScriptRunnerApp
                     ActiveStudents = _vm.ActiveStudents,
                     ActiveStaff = _vm.ActiveStaff,
                     ActiveScripts = _vm.ActiveScripts,
-                    TotalScripts = _vm.ActiveScripts,   // reuse; adjust if you track total separately
+                    TotalScripts = _vm.ActiveScripts,
                     FeesLast30Days = _vm.FeesLast30Days,
                     RunsLast7Days = _vm.RunsLast7Days
                 };
 
-                // Populate fees by month from the loaded chart data
                 if (_vm.FeesByMonth != null)
                 {
                     foreach (var item in _vm.FeesByMonth)
@@ -101,7 +94,6 @@ namespace KabarakScriptRunnerApp
                         });
                 }
 
-                // Populate enrolments by year
                 if (_vm.StudentsByYear != null)
                 {
                     foreach (var item in _vm.StudentsByYear)
@@ -112,7 +104,6 @@ namespace KabarakScriptRunnerApp
                         });
                 }
 
-                // Populate recent activity
                 if (_vm.RecentActivity != null)
                 {
                     foreach (var item in _vm.RecentActivity)
@@ -135,7 +126,9 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to export PDF:\n\n{ex.Message}",
+                // EH-01: safe text only.
+                var safe = SafeErrorMessage.For(ex, "DashboardExportPdf");
+                MessageBox.Show($"Failed to export PDF:\n\n{safe}",
                     "Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }

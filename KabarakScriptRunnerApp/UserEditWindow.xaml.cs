@@ -5,7 +5,8 @@ using System.Windows.Controls;
 using KabarakScriptRunner.Core.Security;
 using KabarakScriptRunner.Data.Models;
 using KabarakScriptRunner.Data.Repositories;
-using KabarakScriptRunnerApp.Validation; // Ensure this matches your validator namespace
+using KabarakScriptRunnerApp.Services;
+using KabarakScriptRunnerApp.Validation;
 
 namespace KabarakScriptRunnerApp
 {
@@ -36,7 +37,8 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                lblError.Text = $"Failed to load departments: {ex.Message}";
+                // EH-01: safe text only.
+                lblError.Text = "Failed to load departments: " + SafeErrorMessage.For(ex, "UserEdit.LoadDepartments");
                 return;
             }
 
@@ -80,7 +82,6 @@ namespace KabarakScriptRunnerApp
             var password = txtPassword.Password;
             var confirm = txtPasswordConfirm.Password;
 
-            // Execute pattern validation rule block
             var validator = new UserEditValidator(IsNewUser);
             var result = validator.Validate((userId, displayName, dept, password, confirm));
 
@@ -109,7 +110,8 @@ namespace KabarakScriptRunnerApp
                 }
                 catch (Exception ex)
                 {
-                    lblError.Text = $"Failed to create user: {ex.Message}";
+                    // EH-01: safe text only.
+                    lblError.Text = "Failed to create user: " + SafeErrorMessage.For(ex, "UserEdit.Create");
                 }
             }
             else
@@ -131,7 +133,8 @@ namespace KabarakScriptRunnerApp
                 }
                 catch (Exception ex)
                 {
-                    lblError.Text = $"Failed to update user: {ex.Message}";
+                    // EH-01: safe text only.
+                    lblError.Text = "Failed to update user: " + SafeErrorMessage.For(ex, "UserEdit.Update");
                 }
             }
         }

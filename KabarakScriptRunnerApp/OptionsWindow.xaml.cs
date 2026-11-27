@@ -27,8 +27,9 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
+                // EH-01: safe text only.
                 lblStatus.Foreground = System.Windows.Media.Brushes.Red;
-                lblStatus.Text = $"Failed to load options: {ex.Message}";
+                lblStatus.Text = "Failed to load options: " + SafeErrorMessage.For(ex, "Options.Load");
             }
         }
 
@@ -59,8 +60,9 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
+                // EH-01: safe text only.
                 lblStatus.Foreground = System.Windows.Media.Brushes.Red;
-                lblStatus.Text = $"Failed to save options: {ex.Message}";
+                lblStatus.Text = "Failed to save options: " + SafeErrorMessage.For(ex, "Options.Save");
             }
         }
 
@@ -84,7 +86,9 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Could not open the logs folder:\n\n{ex.Message}",
+                // EH-01: safe text only.
+                var safe = SafeErrorMessage.For(ex, "Options.ViewLogs");
+                MessageBox.Show($"Could not open the logs folder:\n\n{safe}",
                     "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }

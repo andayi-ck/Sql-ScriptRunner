@@ -32,7 +32,8 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                lblError.Text = $"Failed to load users: {ex.Message}";
+                // EH-01: safe text only.
+                lblError.Text = "Failed to load users: " + SafeErrorMessage.For(ex, "ChangePassword.LoadUsers");
             }
         }
 
@@ -72,7 +73,8 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                lblError.Text = $"Failed to update password: {ex.Message}";
+                // EH-01: safe text only.
+                lblError.Text = "Failed to update password: " + SafeErrorMessage.For(ex, "ChangePassword.Save");
             }
         }
 
