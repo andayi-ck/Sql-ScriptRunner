@@ -73,8 +73,9 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Failed to load scripts in BatchExportWindow");
-                MessageBox.Show("Failed to load scripts. Please try again.",
+                // EH-01: log full exception, show generic text + correlation ID.
+                var safe = SafeErrorMessage.For(ex, "BatchExport.Load");
+                MessageBox.Show($"Failed to load scripts.\n\n{safe}",
                     "Load Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -158,7 +159,9 @@ namespace KabarakScriptRunnerApp
                 try { Directory.CreateDirectory(outputFolder); }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Cannot use output folder:\n\n{ex.Message}",
+                    // EH-01: previously leaked the path via ex.Message; now safe.
+                    var safe = SafeErrorMessage.For(ex, "BatchExport.CreateFolder");
+                    MessageBox.Show($"Cannot use output folder:\n\n{safe}",
                         "Invalid Folder", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
@@ -222,7 +225,6 @@ namespace KabarakScriptRunnerApp
                 if (confirm != MessageBoxResult.Yes) return;
 
                 // CN-05: Create the CTS ONCE, here, and own it until the finally below.
-                // ExecuteBatchAsync no longer creates its own — it receives the token.
                 _batchCts = new CancellationTokenSource();
                 var token = _batchCts.Token;
 
@@ -259,8 +261,9 @@ namespace KabarakScriptRunnerApp
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Batch run failed unexpectedly");
-                MessageBox.Show("The batch export failed unexpectedly. Please check the logs.",
+                // EH-01: outer catch was already generic; now logs with a ref too.
+                var safe = SafeErrorMessage.For(ex, "BatchExport.RunBatch");
+                MessageBox.Show($"The batch export failed unexpectedly.\n\n{safe}",
                     "Batch Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
@@ -333,12 +336,16 @@ namespace KabarakScriptRunnerApp
                     catch (Exception ex)
                     {
                         fail++;
+                        // EH-04: full detail to Serilog only; the persisted audit row
+                        // gets a safe category + correlation ID so the Access Log PDF
+                        // does not leak SQL/IO text.
+                        var persisted = SafeErrorMessage.PersistedReasonFor(ex, "BatchExport.RunScript");
                         try
                         {
                             await _scriptRepository.LogAdminActionAsync(
                                 _currentUser.UserId, "BatchScriptFailed", "Script",
                                 row.ScriptId.ToString(),
-                                $"Batch: '{row.Name}' failed: {ex.Message}");
+                                $"Batch: '{row.Name}' failed: {persisted}");
                         }
                         catch (Exception logEx)
                         {
